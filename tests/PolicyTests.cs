@@ -14,7 +14,14 @@ class Tests {
     static int Main() {
         try {
             var s=new Settings();var p=new CurvePolicy();var t=DateTime.UtcNow;
+            Assert(s.Mode=="Curve","New settings default to fan curve mode");s.Mode="Auto";
             Assert(p.Select(s,50,t)==0,"Manufacturer auto");
+            Assert(Presentation.Describe("Fixed",1)=="팬 커브를 1단계로 고정합니다.","Fixed-mode description");
+            Assert(Presentation.Describe("Curve",1)=="온도에 따라 팬 소음을 조절합니다.","Curve-mode description");
+            Assert(Presentation.Describe("Auto",1).Contains("제조사 기본 세팅"),"Off explains manufacturer automatic mode");
+            Assert(Presentation.StatusLine(55,"Fixed",1,1,3369,3599)=="CPU=55°C mode=Fixed level=1/1 RPM=3369/3599","Concise status format");
+            Assert(Presentation.TextScale(700,700,1920,1080,420)>Presentation.TextScale(460,700,1920,1080,420),"Text adapts to narrower window");
+            Assert(Presentation.TextScale(700,700,800,600,420)<=Presentation.TextScale(700,700,1920,1080,420),"Text respects available screen size");
             s.Mode="Fixed";
             for(int level=1;level<=7;level++) {s.FixedLevel=level;Assert(p.Select(s,50,t)==level,"Fixed level "+level);}
             Assert(p.Select(s,90,t)==0,"90 C overrides fixed mode");
