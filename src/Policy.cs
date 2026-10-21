@@ -17,9 +17,15 @@ namespace SwiftEdgeFanControl {
         public List<CurvePoint> Curve { get; set; }
         public Settings() {
             Mode = "Auto"; FixedLevel = 1; Hysteresis = 3; DownDelaySeconds = 10;
-            Curve = new List<CurvePoint> { new CurvePoint(0,1), new CurvePoint(55,2),
+            Curve = new List<CurvePoint> { new CurvePoint(0,1), new CurvePoint(60,2),
                 new CurvePoint(65,3), new CurvePoint(72,4), new CurvePoint(78,5),
                 new CurvePoint(83,6), new CurvePoint(87,7) };
+        }
+        public bool UpgradeFactoryCurve() {
+            int[] previous={0,55,65,72,78,83,87};
+            if(Curve==null||Curve.Count!=previous.Length)return false;
+            for(int i=0;i<previous.Length;i++)if(Curve[i].Temperature!=previous[i]||Curve[i].Level!=i+1)return false;
+            Curve[1].Temperature=60;return true;
         }
         public void Validate() {
             if (Mode != "Auto" && Mode != "Fixed" && Mode != "Curve") throw new ArgumentException("Invalid mode");

@@ -17,7 +17,7 @@ namespace SwiftEdgeFanControl {
         public static Settings LoadSettings() {
             string path=Path.Combine(Root,"settings.json");
             if(!File.Exists(path))return new Settings();
-            var s=Json.Deserialize<Settings>(File.ReadAllText(path));s.Validate();return s;
+            var s=Json.Deserialize<Settings>(File.ReadAllText(path));s.UpgradeFactoryCurve();s.Validate();return s;
         }
         public static void SaveSettings(Settings s) { s.Validate(); Atomic(Path.Combine(Root,"settings.json"),Json.Serialize(s)); }
     }
