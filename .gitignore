@@ -1,0 +1,6 @@
+build/
+*.user
+*.suo
+*.tmp
+hardware-smoke*.json
+hardware-smoke-error.txt
