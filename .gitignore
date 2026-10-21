@@ -5,3 +5,4 @@ build/
 hardware-smoke*.json
 hardware-smoke-error.txt
 build-v2/
+build-v3/
