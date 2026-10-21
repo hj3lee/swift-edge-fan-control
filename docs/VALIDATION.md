@@ -1,0 +1,29 @@
+# Validation — 2026-10-22 KST
+
+## Current native app
+
+| Check | Result | What it establishes |
+|---|---|---|
+| Windows x64 .NET Framework compilation | Passed | Executable builds without an external SDK |
+| Policy/controller mock suite | 26 checks passed | Fixed 1–7 decisions, 90°C override, curve hysteresis and delay, invalid settings rejection, manual readback, thermal fallback, no silent rearm, external change fallback, sensor failure restoration |
+| UI bitmap preview | Inspected and corrected | Korean controls and status strip fit at the fixed pixel layout; preview uses simulated data |
+| Actual 30-second level-1 smoke test | Passed after fixes | Both levels stayed 1; settled RPM about 3,360 / 3,530; CPU 46–47°C; requested Auto and verified automatic restoration |
+| Read timeouts in that smoke test | Still present | Final recorded status had 76 read attempts / 9 timeouts; recovered. This is not a claim of better per-call reliability |
+| Actual forced process exit | Passed | Main app exited deliberately during level 1; independent watchdog verified automatic mode at heartbeat age 8.30 seconds |
+| Logon-task registration/removal | Passed | Task was created, queried and removed. It is left disabled; an actual reboot/login was not performed |
+| 90°C physical-temperature event | Not performed | Thermal fallback was tested with fake sensor values, not by heating the machine to 90°C |
+| Sleep/resume, long app endurance, battery power | Not yet validated | Implementation exists; no hardware validation claim |
+| Levels 6 and 7 | Policy/UI implemented; hardware not validated | Do not infer their actual RPM or sustained behavior |
+
+The first native-app tests exposed two implementation defects: an overly strict model string check rejected `Swift SFE16-43`, and a transient heartbeat-file read failure caused premature watchdog restoration. Both were fixed before the successful checks above. Initial model rejection did not perform control writes. Short spin polling was also added to reduce scheduler delays; its power cost and long-term reliability have not been measured.
+
+Real-mode tests ended in manufacturer automatic mode. The startup task was removed after its registration test. Automatic mode was subsequently checked independently via the existing EC reader.
+
+## Earlier Python prototype — separate evidence
+
+- Level 1 completed a 10-minute hold: CPU 50–63°C; actual fresh fan measurements 3,076–3,353 / 3,506–3,546 RPM. 1,053 reads / 98 timeouts; three sample failures recovered; no observed level mismatch.
+- A subsequent one-hour target run aborted at about 400 seconds: CPU 45–54°C, manual bit still set, both levels changed externally from 1 to 4. The cause remains unresolved. Main and watchdog automatic restoration were verified.
+- Short tests verified level selection and actual RPM response for levels 1, 2, 3 and 5. These are not a complete mapping of every level, workload or firmware.
+- Earlier fault-injection tests covered high-temperature alarm, sensor failure and process crash with automatic restoration.
+
+These results establish an experimental control path on one SFE16-43 / Ray_PEU / V1.71. They do not establish broad compatibility, app endurance for hours, battery savings, or a 2,500 RPM capability.
