@@ -173,7 +173,7 @@ namespace SwiftEdgeFanControl {
                         next.Message=demo?"DEMO · no hardware access":"Sensor read verified";
                         lock(gate)status=next;
                         if(DateTime.UtcNow>=nextLog) {
-                            log.Write("STATUS","CPU="+temp+"°C mode="+settings.Mode+" level="+next.Level1+"/"+next.Level2+" RPM="+next.Rpm1+"/"+next.Rpm2+" RPM-read="+next.FullUpdated+" timeouts="+next.Timeouts+"/"+next.Attempts);
+                            log.Write("STATUS",Presentation.StatusLine(temp,settings.Mode,next.Level1,next.Level2,next.Rpm1,next.Rpm2));
                             nextLog=DateTime.UtcNow.AddSeconds(20);
                         }
                     } catch(Exception e) {

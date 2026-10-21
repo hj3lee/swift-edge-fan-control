@@ -16,7 +16,7 @@ namespace SwiftEdgeFanControl {
         public int DownDelaySeconds { get; set; }
         public List<CurvePoint> Curve { get; set; }
         public Settings() {
-            Mode = "Auto"; FixedLevel = 1; Hysteresis = 3; DownDelaySeconds = 10;
+            Mode = "Curve"; FixedLevel = 1; Hysteresis = 3; DownDelaySeconds = 10;
             Curve = new List<CurvePoint> { new CurvePoint(0,1), new CurvePoint(60,2),
                 new CurvePoint(65,3), new CurvePoint(72,4), new CurvePoint(78,5),
                 new CurvePoint(83,6), new CurvePoint(87,7) };
@@ -41,6 +41,20 @@ namespace SwiftEdgeFanControl {
                 if(i>0 && (p.Temperature<=Curve[i-1].Temperature || p.Level<Curve[i-1].Level))
                     throw new ArgumentException("Temperatures must increase; levels must not decrease");
             }
+        }
+    }
+    public static class Presentation {
+        public static string Describe(string mode,int level) {
+            if(mode=="Fixed")return "팬 커브를 "+level+"단계로 고정합니다.";
+            if(mode=="Curve")return "온도에 따라 팬 소음을 조절합니다.";
+            return "팬 컨트롤을 중지하고 제조사 기본 세팅을 사용합니다.";
+        }
+        public static string StatusLine(int temperature,string mode,int level1,int level2,int rpm1,int rpm2) {
+            return "CPU="+temperature+"°C mode="+mode+" level="+level1+"/"+level2+" RPM="+rpm1+"/"+rpm2;
+        }
+        public static float TextScale(int width,int baselineWidth,int screenWidth,int screenHeight,int baselineHeight) {
+            float available=Math.Min(screenWidth/(baselineWidth+48F),screenHeight/(baselineHeight+80F));
+            return Math.Max(.45F,Math.Min(2F,Math.Min(width/(float)Math.Max(1,baselineWidth),available)));
         }
     }
     public class CurvePolicy {

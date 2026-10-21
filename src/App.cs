@@ -45,7 +45,7 @@ namespace SwiftEdgeFanControl {
                                     log.Write("TEST","Injected process exit; watchdog must restore automatic");Environment.Exit(99);
                                 }
                             }
-                            c.Request(new Settings());Thread.Sleep(2500);
+                            c.Request(new Settings {Mode="Auto"});Thread.Sleep(2500);
                             rows.Add(c.Current);
                             Files.Atomic(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"hardware-smoke.json"),Files.Json.Serialize(rows));
                         }
