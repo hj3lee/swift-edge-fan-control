@@ -12,13 +12,14 @@ using Microsoft.Win32;
 
 namespace SwiftEdgeFanControl {
     public static class Ui {
-        public static readonly Color Background=Color.FromArgb(19,24,29), Panel=Color.FromArgb(29,36,43),
-            Accent=Color.FromArgb(113,224,178), Muted=Color.FromArgb(172,187,196);
+        public static readonly Color Background=Color.White, Panel=Color.FromArgb(244,246,249),
+            Accent=Color.FromArgb(0,87,183), Highlight=Color.FromArgb(255,215,0),
+            Ink=Color.FromArgb(30,41,59), OnAccent=Color.White, Muted=Color.FromArgb(86,101,119);
         public static float Scale { get { using(var g=Graphics.FromHwnd(IntPtr.Zero))return Math.Max(1,g.DpiX/96F); } }
         public static int S(float value) {return (int)Math.Round(value*Scale);}
         public static Font TextFont(float pixels) {return new Font("Segoe UI",pixels*Scale,FontStyle.Regular,GraphicsUnit.Pixel);}
         public static void Window(Form form,string title,int w,int h) {
-            form.Text=title;form.BackColor=Background;form.ForeColor=Color.White;form.Font=TextFont(17);
+            form.Text=title;form.BackColor=Background;form.ForeColor=Ink;form.Font=TextFont(17);
             form.AutoScaleMode=AutoScaleMode.None;form.StartPosition=FormStartPosition.CenterScreen;
             var screen=Screen.PrimaryScreen.WorkingArea;
             form.ClientSize=new Size(Math.Min(S(w),screen.Width-S(32)),Math.Min(S(h),screen.Height-S(48)));
@@ -29,9 +30,10 @@ namespace SwiftEdgeFanControl {
         }
         public static Button Button(string text,Action action) {
             var b=new Button {Text=text,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,MinimumSize=new Size(S(48),S(40)),
-                FlatStyle=FlatStyle.Flat,BackColor=Panel,ForeColor=Color.White,Padding=new Padding(S(10),S(6),S(10),S(6)),
+                FlatStyle=FlatStyle.Flat,BackColor=Panel,ForeColor=Ink,Padding=new Padding(S(10),S(6),S(10),S(6)),
                 Margin=new Padding(0,0,S(7),S(7)),Cursor=Cursors.Hand};
-            b.FlatAppearance.BorderColor=Color.FromArgb(64,79,87);b.Click+=delegate {action();};return b;
+            b.FlatAppearance.BorderColor=Color.FromArgb(205,214,225);b.FlatAppearance.MouseOverBackColor=Color.FromArgb(255,246,191);
+            b.FlatAppearance.MouseDownBackColor=Highlight;b.Click+=delegate {action();};return b;
         }
         public static FlowLayoutPanel Flow() {return new FlowLayoutPanel {AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Fill,Margin=Padding.Empty,WrapContents=true};}
         public static TableLayoutPanel Stack() {
@@ -42,8 +44,8 @@ namespace SwiftEdgeFanControl {
     }
     public sealed class MainForm : ResponsiveForm {
         readonly bool demo,startHidden;readonly AppLog log;Controller controller;Settings settings;
-        readonly Label description=Ui.Label("",17,Color.White);
-        readonly Label temperature=Ui.Label("—°C",36,Ui.Accent), mode=Ui.Label("제조사 자동",20,Color.White),
+        readonly Label description=Ui.Label("",17,Ui.Ink);
+        readonly Label temperature=Ui.Label("—°C",36,Ui.Accent), mode=Ui.Label("제조사 자동",20,Ui.Ink),
             rpm=Ui.Label("FAN 1  — RPM     /     FAN 2  — RPM",17,Ui.Muted), detail=Ui.Label("연결 확인 중",14,Ui.Muted);
         readonly TextBox recentLog=new TextBox();readonly CheckBox startup=new CheckBox();readonly Button[] levels=new Button[7];
         readonly NotifyIcon tray=new NotifyIcon();readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer();
@@ -55,14 +57,14 @@ namespace SwiftEdgeFanControl {
         public MainForm(bool simulated,AppLog logger,string module,bool hidden) {
             demo=simulated;startHidden=hidden;log=logger;settings=demo?new Settings():Files.LoadSettings();
             Ui.Window(this,"Swift Edge Fan Control"+(demo?" · DEMO":""),700,420);Build();
-            EnableResponsiveText(delegate(float factor){modeRow.Height=(int)(Ui.S(48)*factor);ResizeLog();FitModeButtons();});log.Added+=OnLog;
+            EnableResponsiveText(delegate(float factor){modeRow.Height=(int)(Ui.S(48)*factor);ResizeLog();if(IsHandleCreated)BeginInvoke((Action)FitModeButtons);});log.Added+=OnLog;
             if(!demo) {var id=DeviceIdentity.Detect();if(!id.Supported)throw new InvalidOperationException("지원되지 않는 하드웨어: "+id);}
             IEc ec=demo?(IEc)new FakeEc():new PawnEc(module);
             var pawn=ec as PawnEc;if(pawn!=null)pawn.Diagnostic=delegate(string x){log.Write("EC_RETRY",x);};
             controller=new Controller(ec,log,demo);
             controller.ForcedAutomatic+=delegate(Settings s){SafeUi(delegate {settings=s;Selection();nextDisplay=DateTime.MinValue;});};
             controller.Request(settings);controller.Start();
-            startup.Checked=!demo&&Startup.IsEnabled();startup.AutoCheck=!demo;startup.ForeColor=demo?Ui.Muted:Color.White;loading=false;
+            startup.Checked=!demo&&Startup.IsEnabled();startup.AutoCheck=!demo;startup.ForeColor=demo?Ui.Muted:Ui.Ink;loading=false;
             timer.Interval=1000;timer.Tick+=delegate {RefreshStatus();};timer.Start();
             SystemEvents.PowerModeChanged+=PowerChanged;FormClosing+=ClosingApp;
             Shown+=delegate {if(startHidden)Hide();};Selection();RefreshStatus();
@@ -70,6 +72,10 @@ namespace SwiftEdgeFanControl {
         void Build() {
             var scroll=new Panel {Dock=DockStyle.Fill,AutoScroll=true,Padding=new Padding(Ui.S(22))};Controls.Add(scroll);
             var root=Ui.Stack();scroll.Controls.Add(root);
+            var flag=new TableLayoutPanel {Dock=DockStyle.Top,ColumnCount=2,RowCount=1,Height=Ui.S(5),Margin=new Padding(0,0,0,Ui.S(10))};
+            flag.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));flag.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));
+            flag.Controls.Add(new Panel {Dock=DockStyle.Fill,BackColor=Ui.Accent,Margin=Padding.Empty},0,0);
+            flag.Controls.Add(new Panel {Dock=DockStyle.Fill,BackColor=Ui.Highlight,Margin=Padding.Empty},1,0);root.Controls.Add(flag);
             var header=Ui.Flow();header.Controls.Add(Ui.Label("SWIFT EDGE  /  팬 제어",18,Ui.Accent));
             var zoom=new ComboBox {DropDownStyle=ComboBoxStyle.DropDownList,Width=Ui.S(90),Margin=new Padding(Ui.S(28),0,0,0)};
             zoom.Items.AddRange(new object[]{"자동","115%","130%","150%"});zoom.SelectedIndex=0;
@@ -93,7 +99,7 @@ namespace SwiftEdgeFanControl {
             description.MaximumSize=new Size(Ui.S(650),0);description.Margin=new Padding(0,0,0,Ui.S(12));root.Controls.Add(description);
             var actions=Ui.Flow();curveButton=Ui.Button("커브 설정",OpenCurve);actions.Controls.Add(curveButton);
             actions.Controls.Add(Ui.Button("로그 보기",ToggleLog));actions.Controls.Add(Ui.Button("종료",delegate {exiting=true;Close();}));root.Controls.Add(actions);
-            startup.Text="Windows 로그인 시 실행";startup.AutoSize=true;startup.ForeColor=Color.White;startup.Margin=new Padding(0,Ui.S(7),0,Ui.S(8));
+            startup.Text="Windows 로그인 시 실행";startup.AutoSize=true;startup.ForeColor=Ui.Ink;startup.Margin=new Padding(0,Ui.S(7),0,Ui.S(8));
             startup.CheckedChanged+=delegate {if(loading)return;Try(delegate {Startup.SetEnabled(startup.Checked);log.Write("STARTUP",startup.Checked?"Enabled":"Disabled");});loading=true;startup.Checked=Startup.IsEnabled();loading=false;};
             root.Controls.Add(startup);
             logPanel.Dock=DockStyle.Top;logPanel.Height=Ui.S(160);logPanel.Visible=false;logPanel.Margin=new Padding(0,Ui.S(6),0,Ui.S(8));
@@ -135,12 +141,18 @@ namespace SwiftEdgeFanControl {
         void Zoom(float value) {textZoom=value;SetTextMultiplier(value);}
         void Apply() {settings.Validate();if(!demo)Files.SaveSettings(settings);controller.Request(settings);Selection();nextDisplay=DateTime.MinValue;}
         void Selection() {
-            for(int i=0;i<7;i++) {bool on=settings.Mode=="Fixed"&&settings.FixedLevel==i+1;levels[i].BackColor=on?Ui.Accent:Ui.Panel;levels[i].ForeColor=on?Ui.Background:Color.White;}
+            for(int i=0;i<7;i++) {bool on=settings.Mode=="Fixed"&&settings.FixedLevel==i+1;StyleSelected(levels[i],on);}
             foreach(var button in new[]{autoButton,curveModeButton}) {
                 bool selected=button==autoButton?settings.Mode=="Auto":settings.Mode=="Curve";
-                button.BackColor=selected?Ui.Accent:Ui.Panel;button.ForeColor=selected?Ui.Background:Color.White;
+                StyleSelected(button,selected);
             }
             description.Text=Presentation.Describe(settings.Mode,settings.FixedLevel);
+        }
+        static void StyleSelected(Button button,bool selected) {
+            button.BackColor=selected?Ui.Accent:Ui.Panel;button.ForeColor=selected?Ui.OnAccent:Ui.Ink;
+            button.FlatAppearance.BorderColor=selected?Ui.Accent:Color.FromArgb(205,214,225);
+            button.FlatAppearance.MouseOverBackColor=selected?Color.FromArgb(0,70,150):Color.FromArgb(255,246,191);
+            button.FlatAppearance.MouseDownBackColor=selected?Color.FromArgb(0,61,130):Ui.Highlight;
         }
         static string ModeText(Status s) {return s.Mode=="Fixed"?"고정 · "+s.Level1+"단계":s.Mode=="Curve"?"사용자 커브 · "+s.Level1+"단계":"제조사 자동";}
         void RefreshStatus() {
@@ -151,7 +163,7 @@ namespace SwiftEdgeFanControl {
             }
             bool fault=s.Message!="Sensor read verified"&&!s.Message.StartsWith("DEMO");
             detail.Text=demo?"가상 센서 · 하드웨어 접근 없음":fault?s.Message:"90°C 이상 자동 복귀  ·  상태 표시 20초 간격";
-            detail.ForeColor=fault&&!demo?Color.FromArgb(255,190,120):Ui.Muted;
+            detail.ForeColor=fault&&!demo?Color.FromArgb(154,91,0):Ui.Muted;
             string tip=s.Temperature+"°C · "+ModeText(s)+" · "+s.Rpm1+"/"+s.Rpm2+" RPM";tray.Text=tip.Length>63?tip.Substring(0,63):tip;
         }
         void OnLog(string text) {if(!text.Contains("[STATUS]"))return;SafeUi(delegate {if(recentLog.Lines.Length>80)recentLog.Clear();recentLog.AppendText(text+Environment.NewLine);});}
@@ -199,18 +211,19 @@ namespace SwiftEdgeFanControl {
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));root.RowStyles.Add(new RowStyle(SizeType.Percent,48));root.RowStyles.Add(new RowStyle(SizeType.Percent,52));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));root.RowStyles.Add(new RowStyle(SizeType.AutoSize));root.RowStyles.Add(new RowStyle(SizeType.AutoSize));Controls.Add(root);
-            root.Controls.Add(Ui.Label("온도에 따라 단계 1–7 자동 조절",21,Color.White),0,0);
+            root.Controls.Add(Ui.Label("온도에 따라 단계 1–7 자동 조절",21,Ui.Ink),0,0);
             chart.Dock=DockStyle.Fill;chart.Margin=new Padding(0,Ui.S(6),0,Ui.S(12));root.Controls.Add(chart,0,1);
             table.Dock=DockStyle.Fill;table.BackgroundColor=Ui.Panel;table.BorderStyle=BorderStyle.None;table.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.Fill;
             table.AllowUserToAddRows=true;table.AllowUserToDeleteRows=true;table.RowHeadersWidth=Ui.S(28);table.RowTemplate.Height=Ui.S(30);
             table.ColumnHeadersHeight=Ui.S(34);table.EnableHeadersVisualStyles=false;table.ColumnHeadersDefaultCellStyle.BackColor=Ui.Panel;
-            table.ColumnHeadersDefaultCellStyle.ForeColor=Color.White;table.DefaultCellStyle.BackColor=Ui.Panel;table.DefaultCellStyle.ForeColor=Color.White;
-            table.DefaultCellStyle.SelectionBackColor=Color.FromArgb(48,87,74);table.DefaultCellStyle.SelectionForeColor=Color.White;
+            table.ColumnHeadersDefaultCellStyle.ForeColor=Ui.Ink;table.DefaultCellStyle.BackColor=Ui.Background;table.DefaultCellStyle.ForeColor=Ui.Ink;
+            table.DefaultCellStyle.SelectionBackColor=Color.FromArgb(221,234,251);table.DefaultCellStyle.SelectionForeColor=Ui.Ink;
+            table.GridColor=Color.FromArgb(215,222,232);
             table.Columns.Add("temperature","이 온도부터 (°C)");var levels=new DataGridViewComboBoxColumn {Name="level",HeaderText="팬 단계",FlatStyle=FlatStyle.Flat};
             for(int n=1;n<=7;n++)levels.Items.Add(n.ToString());table.Columns.Add(levels);root.Controls.Add(table,0,2);
             var options=Ui.Flow();options.Margin=new Padding(0,Ui.S(12),0,0);
-            options.Controls.Add(Ui.Label("히스테리시스 °C",16,Color.White));hysteresis.Minimum=1;hysteresis.Maximum=10;hysteresis.Width=Ui.S(65);options.Controls.Add(hysteresis);
-            options.Controls.Add(Ui.Label("감속 대기 초",16,Color.White));delay.Minimum=0;delay.Maximum=120;delay.Width=Ui.S(80);options.Controls.Add(delay);root.Controls.Add(options,0,3);
+            options.Controls.Add(Ui.Label("히스테리시스 °C",16,Ui.Ink));hysteresis.Minimum=1;hysteresis.Maximum=10;hysteresis.Width=Ui.S(65);options.Controls.Add(hysteresis);
+            options.Controls.Add(Ui.Label("감속 대기 초",16,Ui.Ink));delay.Minimum=0;delay.Maximum=120;delay.Width=Ui.S(80);options.Controls.Add(delay);root.Controls.Add(options,0,3);
             root.Controls.Add(message,0,4);var buttons=Ui.Flow();
             buttons.Controls.Add(Ui.Button("저장 · 커브 모드 적용",Save));buttons.Controls.Add(Ui.Button("기본값 · 60°C부터 2단계",delegate {draft=new Settings();Fill();}));
             buttons.Controls.Add(Ui.Button("닫기",delegate {Close();}));root.Controls.Add(buttons,0,5);
@@ -230,7 +243,7 @@ namespace SwiftEdgeFanControl {
             s.Hysteresis=(int)hysteresis.Value;s.DownDelaySeconds=(int)delay.Value;s.Mode="Curve";s.Validate();return s;
         }
         void UpdateChart() {if(filling)return;try {var s=Read();chart.Points=s.Curve;chart.Invalidate();message.Text="가열 시 즉시 상승 · 냉각 시 히스테리시스와 감속 대기 적용";message.ForeColor=Ui.Muted;}
-            catch(Exception e){chart.Points=new List<CurvePoint>();chart.Invalidate();message.Text=e.Message;message.ForeColor=Color.FromArgb(255,190,120);}}
+            catch(Exception e){chart.Points=new List<CurvePoint>();chart.Invalidate();message.Text=e.Message;message.ForeColor=Color.FromArgb(154,91,0);}}
         void Save() {try{table.EndEdit();var s=Read();apply(s);draft=s;message.Text="저장하고 사용자 커브 모드를 적용했습니다.";}catch(Exception e){MessageBox.Show(this,e.Message,"커브 확인");}}
         public void RenderPreview() {using(var image=new Bitmap(Width,Height)){DrawToBitmap(image,new Rectangle(0,0,Width,Height));image.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"curve-preview.png"));}}
     }
@@ -241,13 +254,13 @@ namespace SwiftEdgeFanControl {
         PointF Position(CurvePoint p){var r=Plot;return new PointF(r.Left+r.Width*p.Temperature/90F,r.Bottom-r.Height*(p.Level-1)/6F);}
         protected override void OnPaint(PaintEventArgs e) {
             base.OnPaint(e);var g=e.Graphics;g.SmoothingMode=SmoothingMode.AntiAlias;var r=Plot;
-            using(var grid=new Pen(Color.FromArgb(55,67,77)))using(var ink=new SolidBrush(Ui.Muted))using(var line=new Pen(Ui.Accent,Ui.S(2)))using(var dot=new SolidBrush(Ui.Accent)) {
+            using(var grid=new Pen(Color.FromArgb(214,222,233)))using(var ink=new SolidBrush(Ui.Muted))using(var line=new Pen(Ui.Accent,Ui.S(2)))using(var dot=new SolidBrush(Ui.Highlight)) {
                 for(int n=1;n<=7;n++){float y=r.Bottom-r.Height*(n-1)/6F;g.DrawLine(grid,r.Left,y,r.Right,y);g.DrawString(n.ToString(),Font,ink,Ui.S(12),y-Ui.S(8));}
                 for(int t=0;t<=90;t+=15){float x=r.Left+r.Width*t/90F;g.DrawLine(grid,x,r.Top,x,r.Bottom);g.DrawString(t+"°",Font,ink,x-Ui.S(10),r.Bottom+Ui.S(8));}
                 if(Points.Count==0)return;
                 for(int i=0;i<Points.Count;i++){PointF a=Position(Points[i]);float end=i+1<Points.Count?Position(Points[i+1]).X:r.Right;
                     g.DrawLine(line,a.X,a.Y,end,a.Y);if(i+1<Points.Count)g.DrawLine(line,end,a.Y,end,Position(Points[i+1]).Y);
-                    float radius=Ui.S(5);g.FillEllipse(dot,a.X-radius,a.Y-radius,radius*2,radius*2);}
+                    float radius=Ui.S(5);g.FillEllipse(dot,a.X-radius,a.Y-radius,radius*2,radius*2);g.DrawEllipse(line,a.X-radius,a.Y-radius,radius*2,radius*2);}
             }
         }
         protected override void OnMouseDown(MouseEventArgs e){base.OnMouseDown(e);if(e.Button!=MouseButtons.Left)return;
