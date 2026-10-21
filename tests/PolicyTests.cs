@@ -1,0 +1,59 @@
+using System;
+using System.Threading;
+using SwiftEdgeFanControl;
+
+class Tests {
+    static int count;
+    static void Assert(bool ok,string name) {if(!ok)throw new Exception(name);count++;Console.WriteLine("PASS "+name);}
+    static void Reject(Action action,string name) {bool rejected=false;try{action();}catch(ArgumentException){rejected=true;}Assert(rejected,name);}
+    static void Until(Func<bool> predicate,string name) {
+        var end=DateTime.UtcNow.AddSeconds(7);
+        while(DateTime.UtcNow<end) {if(predicate()){Assert(true,name);return;}Thread.Sleep(40);}
+        throw new Exception("Timed out: "+name);
+    }
+    static int Main() {
+        try {
+            var s=new Settings();var p=new CurvePolicy();var t=DateTime.UtcNow;
+            Assert(p.Select(s,50,t)==0,"Manufacturer auto");
+            s.Mode="Fixed";
+            for(int level=1;level<=7;level++) {s.FixedLevel=level;Assert(p.Select(s,50,t)==level,"Fixed level "+level);}
+            Assert(p.Select(s,90,t)==0,"90 C overrides fixed mode");
+            s.Mode="Curve";p.Reset();Assert(p.Select(s,65,t)==3,"Curve rises immediately");
+            Assert(p.Select(s,64,t)==3,"Hysteresis holds near threshold");
+            Assert(p.Select(s,62,t)==3,"Cooling starts down timer");
+            Assert(p.Select(s,62,t.AddSeconds(9))==3,"Down timer holds");
+            Assert(p.Select(s,62,t.AddSeconds(10))==2,"Cooling lowers after delay");
+            Assert(p.Select(s,88,t.AddSeconds(11))==7,"Fast heating jumps levels");
+            Assert(p.Select(s,90,t.AddSeconds(12))==0,"90 C overrides curve");
+            s.FixedLevel=8;Reject(s.Validate,"Reject out-of-range level");s.FixedLevel=1;
+            s.Curve[1].Temperature=0;Reject(s.Validate,"Reject duplicate temperature");s=new Settings();
+            s.Curve[2].Level=1;Reject(s.Validate,"Reject decreasing curve levels");
+            var fake=new TestEc();var log=new AppLog(true);
+            using(var c=new Controller(fake,log,true)) {
+                var set=new Settings {Mode="Fixed",FixedLevel=1};c.Request(set);c.Start();
+                Until(()=>fake.Mode==2 && fake.Level==1,"Engine verifies manual level");
+                fake.Temp=90;
+                Until(()=>fake.Mode==0 && c.Current.Mode=="Auto","Thermal fallback restores automatic");
+                fake.Temp=50;Thread.Sleep(2200);
+                Assert(fake.Mode==0,"Cooling does not silently rearm manual mode");
+                c.Request(set);Until(()=>fake.Mode==2,"Explicit user action rearms manual");
+                fake.Level=4;
+                Until(()=>fake.Mode==0 && c.Current.Mode=="Auto","External level change falls back");
+                c.Request(set);Until(()=>fake.Mode==2,"Manual rearmed for sensor failure test");
+                fake.BadTemp=true;
+                Until(()=>fake.Mode==0 && c.Current.Mode=="Auto","Sensor failure restores automatic");
+            }
+            Console.WriteLine(count+" checks passed. No real hardware was opened.");return 0;
+        } catch(Exception e) {Console.Error.WriteLine(e);return 1;}
+    }
+    class TestEc : IEc {
+        public volatile byte Mode,Level=4,Temp=50;public volatile bool BadTemp;
+        public byte Read(byte r) {
+            if(r==0)return Mode;if(r==0x55||r==0x4f)return Level;
+            if(r==0x58) {if(BadTemp)throw new TimeoutException("Injected temperature failure");return Temp;}
+            return (byte)((r==0x5c||r==0x6a)?13:100);
+        }
+        public void Write(byte r,byte v) {if(r==0)Mode=v;if(r==0x55||r==0x4f)Level=v;}
+        public void Dispose(){}
+    }
+}
