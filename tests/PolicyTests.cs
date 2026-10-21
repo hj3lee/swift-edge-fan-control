@@ -18,6 +18,13 @@ class Tests {
             s.Mode="Fixed";
             for(int level=1;level<=7;level++) {s.FixedLevel=level;Assert(p.Select(s,50,t)==level,"Fixed level "+level);}
             Assert(p.Select(s,90,t)==0,"90 C overrides fixed mode");
+            var defaults=new Settings {Mode="Curve"};var boundary=new CurvePolicy();
+            Assert(boundary.Select(defaults,59,t)==1,"Default curve below 60 C stays level 1");
+            Assert(boundary.Select(defaults,60,t)==2,"Default curve at 60 C enters level 2");
+            defaults.Curve[1].Temperature=55;
+            Assert(defaults.UpgradeFactoryCurve()&&defaults.Curve[1].Temperature==60,"Migrate unchanged old factory curve");
+            defaults.Curve[1].Temperature=58;
+            Assert(!defaults.UpgradeFactoryCurve()&&defaults.Curve[1].Temperature==58,"Preserve customized curve");
             s.Mode="Curve";p.Reset();Assert(p.Select(s,65,t)==3,"Curve rises immediately");
             Assert(p.Select(s,64,t)==3,"Hysteresis holds near threshold");
             Assert(p.Select(s,62,t)==3,"Cooling starts down timer");
