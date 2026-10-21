@@ -5,7 +5,8 @@
 - `Policy.cs`: validation and deterministic fixed/curve decisions. Curve temperatures strictly increase, levels never decrease as temperature increases, first point is 0°C. Heating changes immediately; cooling crosses the current-level threshold minus hysteresis and waits the configured delay. CPU ≥90°C wins over either manual mode.
 - `Hardware.cs`: exact model/board/BIOS allowlist, signed-module SHA-256 verification, dynamically loaded official PawnIOLib, port protocol and simulated device. Individual read transactions hold `Global\Access_EC`; retry backoff happens after release. Writes are not blindly repeated after an ambiguous timeout.
 - `Controller.cs`: background worker, sensor validation, applied-level readback, independent watchdog heartbeat and bounded rotating logs. No continuous reassertion against an external controller. A mismatch latches automatic mode and requires explicit user action.
-- `App.cs`: native Windows Forms controls, tray menu, status strip, curve editor and logon-task registration. Real mode is elevated; demo mode is unprivileged and opens no driver. This first version elevates the whole app, not a separately sandboxed privileged service.
+- `App.cs`: application entry point and logon-task registration.
+- `Interface.cs`: DPI-scaled native Windows Forms dashboard, selectable text size, bounded collapsible logs, separate draggable curve editor and tray controls. Real mode is elevated; demo mode is unprivileged and opens no driver. This first version elevates the whole app, not a separately sandboxed privileged service.
 
 ## Cadence and display freshness
 

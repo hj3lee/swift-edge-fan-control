@@ -5,8 +5,8 @@
 | Check | Result | What it establishes |
 |---|---|---|
 | Windows x64 .NET Framework compilation | Passed | Executable builds without an external SDK |
-| Policy/controller mock suite | 26 checks passed | Fixed 1–7 decisions, 90°C override, curve hysteresis and delay, invalid settings rejection, manual readback, thermal fallback, no silent rearm, external change fallback, sensor failure restoration |
-| UI bitmap preview | Inspected and corrected | Korean controls and status strip fit at the fixed pixel layout; preview uses simulated data |
+| Policy/controller mock suite | 30 checks passed | Fixed 1–7 decisions, 90°C override, curve hysteresis and delay, invalid settings rejection, manual readback, thermal fallback, no silent rearm, external change fallback, sensor failure restoration |
+| UI bitmap preview | Inspected and corrected | DPI-scaled text, flowing buttons and separate curve editor render correctly; preview uses simulated data; main, log-expanded, 130% text and separate curve layouts inspected |
 | Actual 30-second level-1 smoke test | Passed after fixes | Both levels stayed 1; settled RPM about 3,360 / 3,530; CPU 46–47°C; requested Auto and verified automatic restoration |
 | Read timeouts in that smoke test | Still present | Final recorded status had 76 read attempts / 9 timeouts; recovered. This is not a claim of better per-call reliability |
 | Actual forced process exit | Passed | Main app exited deliberately during level 1; independent watchdog verified automatic mode at heartbeat age 8.30 seconds |
@@ -27,3 +27,7 @@ Real-mode tests ended in manufacturer automatic mode. The startup task was remov
 - Earlier fault-injection tests covered high-temperature alarm, sensor failure and process crash with automatic restoration.
 
 These results establish an experimental control path on one SFE16-43 / Ray_PEU / V1.71. They do not establish broad compatibility, app endurance for hours, battery savings, or a 2,500 RPM capability.
+
+## UI revision
+
+Main dashboard reduced to temperature/mode/RPM/quick controls; bounded collapsed logs; separate draggable curve graph and table; Windows DPI-aware sizing and selectable text zoom. Added boundary tests for 59?C/60?C and migration/preservation tests for old factory/custom curves. No thermal or EC protocol change in this revision. The existing app was replaced only after its watchdog restored automatic mode and an independent EC read verified it.
