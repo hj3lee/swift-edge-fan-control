@@ -5,7 +5,7 @@
 | Check | Result | What it establishes |
 |---|---|---|
 | Windows x64 .NET Framework compilation | Passed | Executable builds without an external SDK |
-| Policy/controller mock suite | 30 checks passed | Fixed 1–7 decisions, 90°C override, curve hysteresis and delay, invalid settings rejection, manual readback, thermal fallback, no silent rearm, external change fallback, sensor failure restoration |
+| Policy/controller mock suite | 37 checks passed | Fixed 1–7 decisions, 90°C override, curve hysteresis and delay, invalid settings rejection, manual readback, thermal fallback, no silent rearm, external change fallback, sensor failure restoration |
 | UI bitmap preview | Inspected and corrected | DPI-scaled text, flowing buttons and separate curve editor render correctly; preview uses simulated data; main, log-expanded, 130% text and separate curve layouts inspected |
 | Actual 30-second level-1 smoke test | Passed after fixes | Both levels stayed 1; settled RPM about 3,360 / 3,530; CPU 46–47°C; requested Auto and verified automatic restoration |
 | Read timeouts in that smoke test | Still present | Final recorded status had 76 read attempts / 9 timeouts; recovered. This is not a claim of better per-call reliability |
@@ -30,4 +30,8 @@ These results establish an experimental control path on one SFE16-43 / Ray_PEU /
 
 ## UI revision
 
-Main dashboard reduced to temperature/mode/RPM/quick controls; bounded collapsed logs; separate draggable curve graph and table; Windows DPI-aware sizing and selectable text zoom. Added boundary tests for 59?C/60?C and migration/preservation tests for old factory/custom curves. No thermal or EC protocol change in this revision. The existing app was replaced only after its watchdog restored automatic mode and an independent EC read verified it.
+Main dashboard reduced to temperature/mode/RPM/quick controls; bounded collapsed logs; separate draggable curve graph and table; Windows DPI-aware sizing and selectable text zoom. Added boundary tests for 59°C/60°C and migration/preservation tests for old factory/custom curves. No thermal or EC protocol change in this revision. The existing app was replaced only after its watchdog restored automatic mode and an independent EC read verified it.
+
+## Mode layout and responsive text revision
+
+Curve / fixed 1–7 / Off now share one row, with a plain-language mode description below. The three secondary actions remain below the description. New settings default to Curve. STATUS UI lines contain only date, temperature, mode, levels and RPM; diagnostics remain in the log files. Runtime text/spacing adapts to window and screen size, with Per-Monitor DPI notifications. Mock tests cover default mode, descriptions, exact STATUS format and text-fit factors. Render checks verify four visible STATUS lines, a single-line temperature and shrinking text in a narrower window. Actual cross-monitor switching has not been physically exercised.

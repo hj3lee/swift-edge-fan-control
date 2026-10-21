@@ -29,3 +29,7 @@ The 90°C threshold is a user-requested fallback setting, not a manufacturer-spe
 ## Remaining work
 
 Find the root cause of EC read contention and unexpected level changes; evaluate a supported driver-side atomic EC transaction rather than extending polling forever. Validate all 1–7 levels, app duration endurance, battery power, suspend/resume and logon task behavior on real hardware. Code tests and mock temperatures cannot establish hardware support. No internet telemetry is implemented.
+
+## Responsive display
+
+`ResponsiveForm.cs` handles window/screen bounds and WM_DPICHANGED; fonts and spacing are fitted from a baseline layout with a debounced UI timer. This does not change EC sampling cadence. The visible log filters for STATUS only; the controller emits a concise STATUS body, while diagnostic events remain on disk. New settings default to Curve, explicit Auto paths (including smoke-test cleanup) remain Auto.
