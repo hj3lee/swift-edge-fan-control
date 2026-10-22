@@ -8,7 +8,7 @@ New-Item -ItemType Directory -Force -Path $out | Out-Null
 $sources = @(Get-ChildItem src\*.cs | ForEach-Object FullName)
 $options = @()
 if ($Development) { $sources += (Resolve-Path tests\Preview.cs).Path; $options += '/define:DEVELOPMENT' }
-& $compiler /nologo /target:winexe /platform:x64 /optimize+ "/out:$out\SwiftEdgeFanControl.exe" /win32manifest:app.manifest /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Management.dll /reference:System.Web.Extensions.dll @options @sources
+& $compiler /nologo /target:winexe /platform:x64 /optimize+ "/out:$out\SwiftEdgeFanControl.exe" /win32manifest:app.manifest /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Web.Extensions.dll @options @sources
 if ($LASTEXITCODE -ne 0) { throw 'App compilation failed' }
 Copy-Item -LiteralPath vendor\LpcACPIEC.bin -Destination "$out\LpcACPIEC.bin" -Force
 & $compiler /nologo /target:exe /platform:x64 "/out:$out\PolicyTests.exe" "/reference:$out\SwiftEdgeFanControl.exe" tests\PolicyTests.cs
