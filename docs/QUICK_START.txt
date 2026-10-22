@@ -1,0 +1,25 @@
+Acer Swift Edge SFE16-43 Fan Control
+
+Supported: SFE16-43 / Ray_PEU / BIOS V1.71, Windows x64.
+Install official PawnIO once: https://pawnio.eu/
+Extract the complete ZIP. Run SwiftEdgeFanControl.exe and accept UAC.
+Keep LpcACPIEC.bin beside the EXE. No separate .NET SDK is required.
+
+Choose Fan curve mode, fixed level 1-7, or Manufacturer default.
+Levels are EC steps, not exact RPM targets. Curve settings edits the curve.
+CPU temperature and fan RPM are sampled every 10 seconds.
+At a sampled CPU temperature >=90 C, control returns to manufacturer auto.
+Persistent communication errors and external level changes also trigger auto.
+The independent watchdog attempts recovery after a stalled/crashed controller.
+Long-term reliability is not established; communication timeouts can occur.
+
+X hides to the tray. Exit restores manufacturer automatic control.
+Run at Windows login is optional. Uncheck it before removing the app.
+Settings and logs: %LOCALAPPDATA%\SwiftEdgeFanControl
+English is the default; six interface languages are available.
+
+Source, compatibility details, validation and AI porting workflow:
+https://github.com/hj3lee/swift-edge-fan-control
+
+App: MIT, see LICENSE. EC module: LGPL-2.1-or-later, see vendor.
+PawnIO driver and DLL are not bundled. Windows security settings are not changed.

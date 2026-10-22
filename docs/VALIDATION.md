@@ -57,3 +57,9 @@ RoundedButton now clears an opaque ancestor surface in both OnPaintBackground an
 The yellow status card, uniform sky-blue/selected-blue mode buttons, matching settings action, gray log action and removed footer sentence were rendered with six UI languages. English is the default; Korean, Japanese, Simplified Chinese, Spanish and German are selectable. Main and curve-editor previews were generated for every language; German and CJK layouts were visually inspected. Input hints, ordinary curve validation messages, editor headers and tray commands are localized; raw diagnostic messages and STATUS bodies remain unchanged. Exit remains available as a muted action.
 
 49 policy, localization and fake-controller checks passed, including six complete catalog rows per key, default/fallback English and settings serialization of a chosen language. Existing four-line-log, single-line-temperature and responsive text render checks passed. UI-only paint/localization changes do not alter the existing 10-second sensor cadence or the 8-second watchdog threshold.
+# Release slimming (2026-10-22)
+
+The production build excludes fake EC hardware and preview rendering. Preview code lives in `tests/Preview.cs` and is compiled only with `build.ps1 -Development`. Removed actual-device smoke/crash/startup test command handlers. The controller, watchdog, EC access, policy and responsive drawing logic remain unchanged. Removed duplicate model probing in MainForm; PawnEc still validates model/board/BIOS before loading the module or opening the driver.
+
+The user ZIP excludes screenshots, development documentation and test binaries. It retains the module license and corresponding source archive. The repository retains tests, validation evidence and porting documentation. Old local staging builds were moved outside the repository. The currently running app was not replaced during this cleanup.
+
