@@ -1,4 +1,4 @@
-# Swift Edge Fan Control
+# Acer Swift Edge SFE16-43 · Fan Control
 
 Acer Swift Edge **SFE16-43**에서 팬 소음을 줄이기 위한 실험용 Windows 트레이 앱입니다. 고정 팬 단계 또는 사용자 온도 커브를 적용하고, 실제 CPU 온도와 양쪽 팬 RPM을 확인합니다.
 
@@ -6,9 +6,9 @@ Acer Swift Edge **SFE16-43**에서 팬 소음을 줄이기 위한 실험용 Wind
 
 ![앱 화면 — 가상 센서로 렌더링한 미리보기](docs/preview.png)
 
-`팬 커브 → 1~7단계 → 끄기` 순서로 모드를 선택합니다. 바로 아래에 현재 모드의 설명을 표시하고, `커브 설정 / 로그 보기 / 종료` 버튼을 유지합니다. `끄기`는 팬을 정지시키는 버튼이 아니라 제조사 자동 제어로 돌려주는 버튼입니다.
+`팬 커브 모드 → 고정 1~7단계 → 제조사 기본` 순서로 모드를 선택합니다. 바로 아래에 현재 모드의 설명을 표시하고, `커브 설정 / 로그 보기 / 종료` 버튼을 유지합니다. `제조사 기본`은 수동 제어를 해제해 제조사 자동 제어로 돌려주는 버튼입니다. 모델명을 포함한 제목은 창의 제목 표시줄에만 두며, 하단에 글자 크기 선택과 GitHub 링크를 제공합니다.
 
-흰 배경과 밝은 회색 정보 영역에 우크라이나 국기의 파랑(`#0057B7`)·노랑(`#FFD700`)을 적용했습니다. 선택 모드는 파랑, 그래프의 조절점은 노랑으로 표시합니다.
+흰 배경에 우크라이나 국기의 파랑(`#0057B7`)·노랑(`#FFD700`)과 옅은 색조를 적용했습니다. 상태 카드와 버튼 모서리는 살짝 둥글게 처리하고, 파랑 모드 선택·노랑 고정 단계·노랑 커브 설정으로 위계를 구분합니다. 로그인 자동 실행 체크박스는 유지합니다.
 
 ![STATUS 로그 4줄 표시 예시](docs/preview-log.png)
 
@@ -17,7 +17,7 @@ Acer Swift Edge **SFE16-43**에서 팬 소음을 줄이기 위한 실험용 Wind
 - **고정 1~7단계:** 양쪽 팬에 같은 단계를 적용합니다. CPU 온도 **90°C 이상**이면 제조사 자동 제어로 복귀하고, 사용자가 다시 선택할 때까지 수동 제어를 재개하지 않습니다.
 - **사용자 팬 커브 — 기본 모드:** 별도 창의 그래프와 표에서 온도별 1~7단계, 히스테리시스(1~10°C), 감속 전 대기(0~120초)를 설정합니다. 가열 시 즉시 올리고 냉각 시 여유 온도와 지연을 적용합니다. 기본 커브는 60°C 미만 1단계, 60°C부터 2단계, 65°C부터 3단계입니다. 이후에는 마지막 선택 모드를 저장하며, 보호 동작으로 전환된 제조사 자동 모드는 임의로 재개하지 않습니다.
 - **제조사 디폴트:** 수동 제어 비트를 해제해 펌웨어에 제어를 돌려줍니다. 앱의 사용자 커브와는 별도 모드입니다.
-- **상태 표시:** 20초마다 CPU 온도, 고정/사용자 지정/제조사 디폴트 모드, 양쪽 RPM을 표시합니다. 모드·단계가 바뀌면 바로 갱신합니다. 온도는 내부적으로 약 2초, 팬 단계와 RPM은 약 6초마다 확인합니다.
+- **상태 표시:** 온도·팬 단계·양쪽 RPM을 약 10초마다 함께 읽고 새 측정값으로 화면과 STATUS 로그를 갱신합니다. 사용자 모드 변경은 대기 중에도 바로 처리합니다. 90°C 보호도 이 측정 간격에서 감지하므로 온도 상승 직후 최대 약 10초와 통신 지연이 있을 수 있습니다.
 - **동적 글자 크기:** 창 너비와 모니터 작업 영역에 따라 글자·여백을 조절합니다. Per-Monitor DPI 변경을 처리하며 `자동 / 115% / 130% / 150%`를 선택할 수 있습니다.
 - **글자 크기 변경 최적화:** 내부 패널의 재배치를 묶고 중간 그리기를 억제하며 폰트를 재사용합니다. 버튼 글자 맞춤도 같은 갱신에서 처리해 멈춤과 반복 그리기를 줄였습니다.
 - **로그:** 화면에는 날짜·CPU 온도·모드·단계·RPM을 담은 STATUS 줄만 표시하며, 펼치면 약 4줄을 읽을 수 있습니다. 통신 재시도·설정 변경·자동 복귀 등 진단 기록은 파일에 보존합니다. 하루 파일당 4MiB에서 한 번 회전하고 14일 지난 로그를 정리합니다.
@@ -48,7 +48,7 @@ Acer Swift Edge **SFE16-43**에서 팬 소음을 줄이기 위한 실험용 Wind
 1. [공식 PawnIO](https://pawnio.eu/)를 설치합니다. 앱은 드라이버를 설치하거나 보안 설정을 해제하지 않습니다. 이미 설치돼 있다면 재설치할 필요가 없습니다.
 2. 저장소의 `downloads/SwiftEdgeFanControl-win-x64.zip`을 내려받아 **폴더 전체를 압축 해제**합니다. `SwiftEdgeFanControl.exe`와 `LpcACPIEC.bin`을 함께 둡니다.
 3. EXE를 실행합니다. 실제 제어에는 관리자 권한이 필요하며 UAC 승격을 요청합니다. 첫 실행 기본 모드는 팬 커브입니다.
-4. `팬 커브`, 고정 단계 `1~7`, `끄기` 중 하나를 누릅니다. 커브 편집은 아래 `커브 설정` 버튼을 사용하고 `저장 · 커브 모드 적용`으로 반영합니다. 표시된 RPM과 실제 적용 상태를 확인합니다.
+4. `팬 커브 모드`, 고정 단계 `1~7`, `제조사 기본` 중 하나를 누릅니다. 커브 편집은 아래 `커브 설정` 버튼을 사용하고 `저장 · 커브 모드 적용`으로 반영합니다. 표시된 RPM과 실제 적용 상태를 확인합니다.
 5. 필요하면 `Windows 로그인 시 자동 실행`을 체크합니다. 해제하면 예약 작업을 제거합니다. 설치 위치의 파일과 개인 설정/로그는 남습니다.
 
 배포 EXE는 아직 Authenticode 서명되지 않았습니다. 앱과 모듈을 임의로 교체하지 마세요. 본 릴리스의 SHA-256은 `downloads/SHA256SUMS.txt`에 제공합니다. 90°C 기준은 이 앱의 CPU 센서에만 적용되며 모든 부품의 온도를 보장하는 기준은 아닙니다. 두 프로세스가 함께 종료되거나 OS가 멈추면 워치독도 동작할 수 없습니다.
@@ -92,4 +92,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 ## English summary
 
-Experimental, model-gated Windows fan controller for Acer Swift Edge **SFE16-43 / Ray_PEU / BIOS V1.71**. Supports fixed **EC levels** 1–7, custom temperature curves with hysteresis and cooling delay, automatic fallback at CPU ≥90°C, a 20-second status strip, logs, tray operation and optional elevated logon startup. Levels are not exact RPM targets. Install official PawnIO separately. The prototype completed a 10-minute level-1 test, but a longer run was interrupted by an unexplained external level change. Read timeouts remain; this is not a claim of broad compatibility or proven long-term stability. Unsupported systems are blocked. See the Korean [AI-assisted porting workflow](docs/PORTING_WITH_AI.ko.md) before building a new hardware profile.
+Experimental, model-gated Windows fan controller for Acer Swift Edge **SFE16-43 / Ray_PEU / BIOS V1.71**. Supports fixed **EC levels** 1–7, custom temperature curves with hysteresis and cooling delay, automatic fallback when CPU ≥90°C is sampled, 10-second sensor/status/log updates, tray operation and optional elevated logon startup. Levels are not exact RPM targets. Install official PawnIO separately. The prototype completed a 10-minute level-1 test, but a longer run was interrupted by an unexplained external level change. Read timeouts remain; this is not a claim of broad compatibility or proven long-term stability. Unsupported systems are blocked. See the Korean [AI-assisted porting workflow](docs/PORTING_WITH_AI.ko.md) before building a new hardware profile.
