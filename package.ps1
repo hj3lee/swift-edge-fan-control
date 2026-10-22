@@ -14,7 +14,4 @@ finally {
     if ((Split-Path -Parent $resolvedStage) -ne (Join-Path $PSScriptRoot 'build')) { throw 'Unexpected staging path' }
     Remove-Item -LiteralPath $resolvedStage -Recurse -Force
 }
-$files = @('downloads\SwiftEdgeFanControl-win-x64.zip','build\release\SwiftEdgeFanControl.exe','build\release\LpcACPIEC.bin')
-$lines = foreach ($file in $files) { $hash=Get-FileHash -LiteralPath $file -Algorithm SHA256; "$($hash.Hash.ToLowerInvariant())  $(Split-Path -Leaf $file)" }
-[IO.File]::WriteAllLines((Join-Path $PSScriptRoot 'downloads\SHA256SUMS.txt'),$lines)
 Write-Output 'Packaged downloads\SwiftEdgeFanControl-win-x64.zip'
