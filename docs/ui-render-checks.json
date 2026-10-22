@@ -1,1 +1,1 @@
-{"four_status_lines_visible":true,"temperature_single_line":true,"text_shrinks_with_window":true}
+{"four_status_lines_visible":true,"temperature_single_line":true,"text_shrinks_with_window":true,"opaque_white_button_corners":true,"corner_colors":["1:FFFFFFFF","2:FFFFFFFF","3:FFFFFFFF","4:FFFFFFFF","5:FFFFFFFF","6:FFFFFFFF","7:FFFFFFFF","Fan curve mode:FFFFFFFF","System default:FFFFFFFF","Curve settings:FFFFFFFF","status-card:FFFFFFFF"],"languages":["en","ko","ja","zh","es","de"],"default_language":"en"}

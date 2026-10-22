@@ -33,3 +33,7 @@ Find the root cause of EC read contention and unexpected level changes; evaluate
 ## Responsive display
 
 `ResponsiveForm.cs` handles window/screen bounds and WM_DPICHANGED; fonts and spacing are fitted from a baseline layout with a debounced UI timer. This does not change EC sampling cadence. The visible log filters for STATUS only; the controller emits a concise STATUS body, while diagnostic events remain on disk. New settings default to Curve, explicit Auto paths (including smoke-test cleanup) remain Auto.
+
+`Localization.cs` provides six in-process UI catalogs (en/ko/ja/zh/es/de), with English as the default and unknown-code fallback. The selected code is stored in Settings.Language; old settings without the field get the constructor's English default. UI language changes save preferences without issuing a fan-mode request. Static control bindings, dynamic mode strings, editor headers and tray labels are refreshed together. Curve saves preserve the current UI language. Technical logs retain their existing machine-readable format.
+
+Rounded controls explicitly paint an opaque ancestor background during both background and foreground painting. Transparent container colors must never be passed directly to Graphics.Clear on the native target, and the foreground paint path must not assume a background-paint callback already ran.
