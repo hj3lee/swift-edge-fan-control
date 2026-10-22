@@ -63,3 +63,7 @@ The production build excludes fake EC hardware and preview rendering. Preview co
 
 The user ZIP excludes screenshots, development documentation and test binaries. It retains the module license and corresponding source archive. The repository retains tests, validation evidence and porting documentation. Old local staging builds were moved outside the repository. The currently running app was not replaced during this cleanup.
 
+## Hardware allowlist removal
+
+Removed the model/board/BIOS rejection and unused CIM identity code at the user's request. The build no longer references System.Management. Module verification, EC register mapping, sensor checks, 90°C fallback and watchdog behavior are unchanged. This removes an execution restriction; it does not establish compatibility with additional laptops. Historical allowlist descriptions above refer to earlier builds.
+

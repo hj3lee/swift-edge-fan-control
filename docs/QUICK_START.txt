@@ -1,6 +1,7 @@
 Acer Swift Edge SFE16-43 Fan Control
 
-Supported: SFE16-43 / Ray_PEU / BIOS V1.71, Windows x64.
+Tested: SFE16-43 / Ray_PEU / BIOS V1.71 / Windows 11 x64.
+No model/board/BIOS allowlist is enforced. Other hardware is unverified.
 Install official PawnIO once: https://pawnio.eu/
 Extract the complete ZIP. Run SwiftEdgeFanControl.exe and accept UAC.
 Keep LpcACPIEC.bin beside the EXE. No separate .NET SDK is required.
