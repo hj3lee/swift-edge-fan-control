@@ -107,15 +107,4 @@ namespace SwiftEdgeFanControl {
         }
         public void Dispose() { if(handle!=IntPtr.Zero) { close(handle);handle=IntPtr.Zero; } mutex.Dispose(); }
     }
-    public sealed class FakeEc : IEc {
-        public byte Temperature=52; public bool FailReads; public byte Mode,Level1=4,Level2=4;
-        public byte Read(byte r) {
-            if(FailReads) throw new TimeoutException("Simulated sensor failure");
-            if(r==0) return Mode;if(r==0x55)return Level1;if(r==0x4f)return Level2;if(r==0x58)return Temperature;
-            int rpm=(r==0x5c||r==0x5d)?(Level1==1?3330:4800):(Level2==1?3540:5100);
-            return (byte)((r==0x5c||r==0x6a)?rpm/256:rpm%256);
-        }
-        public void Write(byte r,byte v) { if(r==0) { Mode=v;if((v&2)==0)Level1=Level2=4; } if(r==0x55)Level1=v;if(r==0x4f)Level2=v; }
-        public void Dispose() { }
-    }
 }
