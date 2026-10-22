@@ -64,6 +64,7 @@ namespace SwiftEdgeFanControl {
         public MainForm(bool simulated,AppLog logger,string module,bool hidden) {
             Files.StartupTrace("MainForm settings begin");
             demo=simulated;startHidden=hidden;log=logger;settings=demo?new Settings():Files.LoadSettings();
+            Files.StartupTrace("Loaded mode="+settings.Mode+" fixed="+settings.FixedLevel+" language="+settings.Language);
             L10n.Set(settings.Language);
             Files.StartupTrace("MainForm Build begin");Ui.Window(this,Ui.AppTitle+(demo?" · DEMO":""),740,400);Build();Files.StartupTrace("MainForm Build ready");
             EnableResponsiveText(delegate(float factor){modeRow.Height=(int)(Ui.S(46)*factor);},delegate {ResizeLog();FitModeButtons();});log.Added+=OnLog;
@@ -194,9 +195,10 @@ namespace SwiftEdgeFanControl {
         void Try(Action action) {try{action();}catch(Exception e){MessageBox.Show(this,L10n.T(e.Message),L10n.T("설정 확인"),MessageBoxButtons.OK,MessageBoxIcon.Warning);}}
         void PowerChanged(object sender,PowerModeChangedEventArgs e) {
             if(e.Mode!=PowerModes.Suspend&&e.Mode!=PowerModes.Resume)return;
-            controller.ForceAuto("Power state: "+e.Mode);
-            if(e.Mode==PowerModes.Suspend){var wait=Stopwatch.StartNew();while(controller.IsOwned&&wait.ElapsedMilliseconds<5000)Thread.Sleep(25);}
-            SafeUi(delegate {settings.Mode="Auto";if(!demo)Files.SaveSettings(settings);Selection();});
+            if(e.Mode==PowerModes.Suspend) {
+                controller.ForceAuto("Power state: Suspend",false);
+                var wait=Stopwatch.StartNew();while(controller.IsOwned&&wait.ElapsedMilliseconds<5000)Thread.Sleep(25);
+            } else SafeUi(delegate {settings=demo?settings:Files.LoadSettings();controller.Request(settings);Selection();nextDisplay=DateTime.MinValue;});
         }
         void ClosingApp(object sender,FormClosingEventArgs e) {
             if(!exiting&&e.CloseReason==CloseReason.UserClosing){e.Cancel=true;Hide();return;}

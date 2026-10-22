@@ -14,16 +14,28 @@ namespace SwiftEdgeFanControl {
         }
         public static readonly string Root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"SwiftEdgeFanControl");
         public static JavaScriptSerializer Json { get { return new JavaScriptSerializer(); } }
+        static readonly object writeGate=new object();
+        public static string ReadShared(string path) {
+            using(var file=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete))
+            using(var reader=new StreamReader(file))return reader.ReadToEnd();
+        }
         public static void Atomic(string path,string text) {
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
-            string tmp=path+".tmp";
-            File.WriteAllText(tmp,text);
-            if(File.Exists(path)) File.Replace(tmp,path,null); else File.Move(tmp,path);
+            lock(writeGate) {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                string tmp=path+"."+Guid.NewGuid().ToString("N")+".tmp";
+                try {
+                    File.WriteAllText(tmp,text);
+                    for(int attempt=0;;attempt++) {
+                        try {if(File.Exists(path))File.Replace(tmp,path,null);else File.Move(tmp,path);return;}
+                        catch(IOException){if(attempt==7)throw;Thread.Sleep(20*(attempt+1));}
+                    }
+                }finally{if(File.Exists(tmp))File.Delete(tmp);}
+            }
         }
         public static Settings LoadSettings() {
             string path=Path.Combine(Root,"settings.json");
             if(!File.Exists(path))return new Settings();
-            var s=Json.Deserialize<Settings>(File.ReadAllText(path));s.UpgradeFactoryCurve();s.Validate();return s;
+            var s=Json.Deserialize<Settings>(ReadShared(path));s.UpgradeFactoryCurve();s.Validate();return s;
         }
         public static void SaveSettings(Settings s) { s.Validate(); Atomic(Path.Combine(Root,"settings.json"),Json.Serialize(s)); }
     }
@@ -130,9 +142,9 @@ namespace SwiftEdgeFanControl {
                 throw new IOException("Requested level readback mismatch");
             expectedLevel=level;log.Write("APPLY","Both fans level "+level+" verified");
         }
-        public void ForceAuto(string reason) {
+        public void ForceAuto(string reason,bool persist=true) {
             var s=Files.LoadSettings();s.Mode="Auto";
-            if(!demo)Files.SaveSettings(s);
+            if(persist&&!demo)Files.SaveSettings(s);
             Request(s);log.Write("FALLBACK",reason);
         }
         void LatchAuto(string reason) {
@@ -155,7 +167,8 @@ namespace SwiftEdgeFanControl {
                 EnsureWatchdog();ready=true;
                 if((baseline&2)!=0) {
                     owned=true;
-                    LatchAuto("Manual EC mode found at startup; manufacturer automatic restored");
+                    Restore();
+                    log.Write("STARTUP","Existing manual EC state cleared; applying saved mode");
                 }
                 while(!stop) {
                     wake.WaitOne(0);
@@ -227,7 +240,7 @@ namespace SwiftEdgeFanControl {
                     Heartbeat lastGood=null;long opened=Stopwatch.GetTimestamp();string lastReadError="";
                     while(true) {
                         try {
-                            var parsed=Files.Json.Deserialize<Heartbeat>(File.ReadAllText(path));
+                            var parsed=Files.Json.Deserialize<Heartbeat>(Files.ReadShared(path));
                             if(parsed!=null && parsed.Tick>0)lastGood=parsed;
                         }catch(Exception e) {lastReadError=e.Message;}
                         Heartbeat hb=lastGood;
