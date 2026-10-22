@@ -35,3 +35,9 @@ Main dashboard reduced to temperature/mode/RPM/quick controls; bounded collapsed
 ## Mode layout and responsive text revision
 
 Curve / fixed 1–7 / Off now share one row, with a plain-language mode description below. The three secondary actions remain below the description. New settings default to Curve. STATUS UI lines contain only date, temperature, mode, levels and RPM; diagnostics remain in the log files. Runtime text/spacing adapts to window and screen size, with Per-Monitor DPI notifications. Mock tests cover default mode, descriptions, exact STATUS format and text-fit factors. Render checks verify four visible STATUS lines, a single-line temperature and shrinking text in a narrower window. Actual cross-monitor switching has not been physically exercised.
+
+## Font-change performance revision
+
+Recursive layout suspension now batches font/spacing changes across nested containers. Visible native controls defer painting until layout and button text fitting finish. Generated fonts are reused, unused cached fonts are pruned above 256 entries, and generated fonts/timers are disposed with the form. Disposed forms ignore delayed responsive work.
+
+On this device, a hardware-free MainForm benchmark with logs expanded changed between 115%, 130%, 150%, and 100% 20 times after four warm-up changes. Both versions used an off-screen window and included Application.DoEvents/Update. Baseline median/max were 657.67/857.27 ms with 6440 layout events; the optimized run measured 96.95/168.43 ms with 2150 layout events. This measures the test UI update path, not end-to-end display/compositor latency, and is not a guarantee for every resolution. The ordinary on-screen render checks passed (four STATUS lines, single-line temperature, responsive font shrink). All 37 policy/fake-controller checks passed. The EC protocol, sampling rate and thermal protection were not modified.
