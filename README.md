@@ -2,8 +2,6 @@
 
 # Acer Swift Edge SFE16-43 Fan Control
 
-## [⬇ DOWNLOAD ZIP · 다운로드](https://github.com/hj3lee/swift-edge-fan-control/raw/refs/heads/main/downloads/SwiftEdgeFanControl-win-x64.zip)
-
 [English](#english) · [한국어](#한국어)
 
 ## English
@@ -23,8 +21,6 @@ Temperature, levels and RPMs are read and logged approximately **every 10 second
 1. Install [official PawnIO](https://pawnio.eu/).
 2. **[Download ZIP](https://github.com/hj3lee/swift-edge-fan-control/raw/refs/heads/main/downloads/SwiftEdgeFanControl-win-x64.zip)** → **Extract All** → run `SwiftEdgeFanControl.exe` as administrator.
 3. Choose **Fan curve mode**, **1–7**, or **Manufacturer default**. Use **Curve settings** to edit the curve; startup at Windows login is optional.
-
-### Build it yourself
 
 The ZIP/EXE is provided for convenience; reviewing and building the source yourself is recommended. **AI-generated code; no professional code review.**
 
@@ -55,8 +51,6 @@ App: [MIT](LICENSE). EC module: [LGPL-2.1-or-later](vendor/NOTICE.md). Not affil
 1. [공식 PawnIO](https://pawnio.eu/)를 설치합니다.
 2. **[ZIP 다운로드](https://github.com/hj3lee/swift-edge-fan-control/raw/refs/heads/main/downloads/SwiftEdgeFanControl-win-x64.zip)** → **모두 압축 풀기** → `SwiftEdgeFanControl.exe`를 관리자 권한으로 실행합니다.
 3. **팬 커브 모드**, **1–7**, **제조사 기본** 중 선택합니다. **커브 설정**에서 커브를 수정하며 로그인 시 자동 실행도 선택할 수 있습니다.
-
-### 직접 빌드
 
 편의상 ZIP/EXE를 제공하지만 소스 검토와 직접 빌드를 권장합니다. **AI로 작성되었으며 전문적인 코드 리뷰를 받지 않았습니다.**
 
