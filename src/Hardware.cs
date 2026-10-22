@@ -1,29 +1,11 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Management;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 
 namespace SwiftEdgeFanControl {
-    public sealed class DeviceIdentity {
-        public string Model="", Board="", Bios="";
-        public bool Supported { get { return (Model.Equals("SFE16-43",StringComparison.OrdinalIgnoreCase) || Model.Equals("Swift SFE16-43",StringComparison.OrdinalIgnoreCase))
-            && Board.Equals("Ray_PEU",StringComparison.OrdinalIgnoreCase)
-            && Bios.Equals("V1.71",StringComparison.OrdinalIgnoreCase); } }
-        public static DeviceIdentity Detect() {
-            var d=new DeviceIdentity();
-            using(var s=new ManagementObjectSearcher("SELECT Model FROM Win32_ComputerSystem"))
-                foreach(ManagementObject x in s.Get()) { d.Model=Convert.ToString(x["Model"]).Trim(); x.Dispose(); }
-            using(var s=new ManagementObjectSearcher("SELECT Product FROM Win32_BaseBoard"))
-                foreach(ManagementObject x in s.Get()) { d.Board=Convert.ToString(x["Product"]).Trim(); x.Dispose(); }
-            using(var s=new ManagementObjectSearcher("SELECT SMBIOSBIOSVersion FROM Win32_BIOS"))
-                foreach(ManagementObject x in s.Get()) { d.Bios=Convert.ToString(x["SMBIOSBIOSVersion"]).Trim(); x.Dispose(); }
-            return d;
-        }
-        public override string ToString() { return Model+" / "+Board+" / "+Bios; }
-    }
     public interface IEc : IDisposable { byte Read(byte register); void Write(byte register, byte value); }
     public sealed class PawnEc : IEc {
         [DllImport("kernel32",CharSet=CharSet.Unicode,SetLastError=true)] static extern IntPtr LoadLibraryEx(string p, IntPtr f,uint flags);
@@ -40,8 +22,6 @@ namespace SwiftEdgeFanControl {
         public long ReadAttempts, ReadTimeouts;
         public Action<string> Diagnostic;
         public PawnEc(string modulePath) {
-            var id=DeviceIdentity.Detect();
-            if(!id.Supported) throw new InvalidOperationException("Unsupported hardware: "+id);
             byte[] blob=File.ReadAllBytes(modulePath);
             using(var sha=SHA256.Create()) {
                 string hash=BitConverter.ToString(sha.ComputeHash(blob)).Replace("-","");
