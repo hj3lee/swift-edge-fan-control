@@ -67,11 +67,16 @@ class Tests {
             }
             var startupFake=new TestEc {Mode=2,Level=4};
             using(var c=new Controller(startupFake,log,true)) {
-                c.Request(new Settings {Mode="Fixed",FixedLevel=1});c.Start();
-                Until(()=>startupFake.Mode==0&&c.Current.FullUpdated!="","Startup manual EC state restores auto and publishes sensors");
-                Assert(c.Current.Mode=="Auto","Startup recovery does not silently apply saved manual mode");
+                c.Request(new Settings {Mode="Fixed",FixedLevel=3});c.Start();
+                Until(()=>startupFake.Mode==2&&startupFake.Level==3&&c.Current.FullUpdated!="","Startup replaces EC level 4 with saved fixed level 3");
+                Assert(c.Current.Mode=="Fixed","Startup recovery preserves saved fixed mode");
                 c.Request(new Settings {Mode="Fixed",FixedLevel=1});
                 Until(()=>startupFake.Mode==2&&startupFake.Level==1,"User can control fans after startup recovery");
+            }
+            var curveStartup=new TestEc {Mode=2,Level=4,Temp=60};
+            using(var c=new Controller(curveStartup,log,true)) {
+                c.Request(new Settings {Mode="Curve"});c.Start();
+                Until(()=>c.Current.Mode=="Curve"&&curveStartup.Level==2&&c.Current.FullUpdated!="","Startup restores saved curve instead of EC level 4");
             }
             var failedStartup=new TestEc {BadMode=true};
             using(var c=new Controller(failedStartup,log,true)) {
@@ -80,6 +85,21 @@ class Tests {
                 Thread.Sleep(100);failedStartup.BadMode=false;c.Request(new Settings {Mode="Auto"});
                 Until(()=>c.Current.FullUpdated!="","Explicit request restarts a failed startup worker");
             }
+            string file=System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"atomic-test-"+Guid.NewGuid().ToString("N")+".json");
+            try {
+                Files.Atomic(file,"old");Exception writeError=null;
+                var held=System.IO.File.Open(file,System.IO.FileMode.Open,System.IO.FileAccess.Read,System.IO.FileShare.Read);
+                var writer=new Thread(()=>{try{Files.Atomic(file,"new");}catch(Exception e){writeError=e;}});
+                writer.Start();Thread.Sleep(100);held.Dispose();writer.Join();
+                Assert(writeError==null&&Files.ReadShared(file)=="new","Atomic write retries temporary sharing violation");
+                using(var shared=System.IO.File.Open(file,System.IO.FileMode.Open,System.IO.FileAccess.Read,System.IO.FileShare.ReadWrite|System.IO.FileShare.Delete)) {
+                    Files.Atomic(file,"replacement");Assert(Files.ReadShared(file)=="replacement","Watchdog-style shared reader permits atomic replacement");
+                }
+                Thread[] writers=new Thread[2];
+                for(int i=0;i<writers.Length;i++){int id=i;writers[i]=new Thread(()=>{try{for(int n=0;n<40;n++)Files.Atomic(file,"{\"writer\":"+id+",\"n\":"+n+"}");}catch(Exception e){writeError=e;}});writers[i].Start();}
+                foreach(var thread in writers)thread.Join();
+                Assert(writeError==null&&Files.Json.DeserializeObject(Files.ReadShared(file))!=null,"Concurrent writers leave a complete JSON file");
+            }finally{if(System.IO.File.Exists(file))System.IO.File.Delete(file);}
             Console.WriteLine(count+" checks passed. No real hardware was opened.");return 0;
         } catch(Exception e) {Console.Error.WriteLine(e);return 1;}
     }
