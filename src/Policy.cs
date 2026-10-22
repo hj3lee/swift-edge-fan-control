@@ -11,12 +11,13 @@ namespace SwiftEdgeFanControl {
     }
     public class Settings {
         public string Mode { get; set; }
+        public string Language { get; set; }
         public int FixedLevel { get; set; }
         public int Hysteresis { get; set; }
         public int DownDelaySeconds { get; set; }
         public List<CurvePoint> Curve { get; set; }
         public Settings() {
-            Mode = "Curve"; FixedLevel = 1; Hysteresis = 3; DownDelaySeconds = 10;
+            Language="en"; Mode = "Curve"; FixedLevel = 1; Hysteresis = 3; DownDelaySeconds = 10;
             Curve = new List<CurvePoint> { new CurvePoint(0,1), new CurvePoint(60,2),
                 new CurvePoint(65,3), new CurvePoint(72,4), new CurvePoint(78,5),
                 new CurvePoint(83,6), new CurvePoint(87,7) };

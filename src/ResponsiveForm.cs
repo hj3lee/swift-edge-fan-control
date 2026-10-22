@@ -29,6 +29,7 @@ namespace SwiftEdgeFanControl {
         }
         void Schedule() {if(!ready||changing||IsDisposed)return;resizeTimer.Stop();resizeTimer.Start();}
         protected void SetTextMultiplier(float value) {if(Math.Abs(multiplier-value)<.001F)return;multiplier=value;ApplyResponsive();}
+        protected void RefreshResponsiveText(){previous=-1;ApplyResponsive();}
         protected Font SizedFont(Font source,float size) {
             size=(float)Math.Round(size,2);
             string key=source.FontFamily.Name+"|"+source.Style+"|"+source.Unit+"|"+size.ToString(System.Globalization.CultureInfo.InvariantCulture);
