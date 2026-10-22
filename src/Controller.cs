@@ -6,6 +6,12 @@ using System.Web.Script.Serialization;
 
 namespace SwiftEdgeFanControl {
     public static class Files {
+        public static void StartupTrace(string stage) {
+            try {Directory.CreateDirectory(Root);string p=Path.Combine(Root,"startup.log");
+                if(File.Exists(p)&&new FileInfo(p).Length>131072)File.WriteAllText(p,"");
+                File.AppendAllText(p,DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")+" pid="+Process.GetCurrentProcess().Id+" "+stage+Environment.NewLine);
+            } catch { }
+        }
         public static readonly string Root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"SwiftEdgeFanControl");
         public static JavaScriptSerializer Json { get { return new JavaScriptSerializer(); } }
         public static void Atomic(string path,string text) {
@@ -84,6 +90,7 @@ namespace SwiftEdgeFanControl {
             lock(gate) { requested=Files.Json.Deserialize<Settings>(Files.Json.Serialize(settings));version++; }
             log.Write("MODE","Requested "+settings.Mode+" level="+settings.FixedLevel+" hysteresis="+settings.Hysteresis+"°C down-delay="+settings.DownDelaySeconds+"s");
             log.Write("CURVE",Files.Json.Serialize(settings.Curve));wake.Set();
+            if(worker!=null&&!worker.IsAlive&&!owned&&!stop)Start();
         }
         void Beat(bool done) {
             Files.Atomic(heartbeatPath,Files.Json.Serialize(new Heartbeat {Tick=Stopwatch.GetTimestamp(),Pid=Process.GetCurrentProcess().Id,Done=done}));
@@ -145,8 +152,11 @@ namespace SwiftEdgeFanControl {
                     catch(TimeoutException) {Thread.Sleep(150);}
                 }
                 if(!haveBaseline)throw new IOException("Cannot read EC baseline; no control writes performed");
-                if((baseline&2)!=0)throw new IOException("Another manual controller is active; no takeover performed");
                 EnsureWatchdog();ready=true;
+                if((baseline&2)!=0) {
+                    owned=true;
+                    LatchAuto("Manual EC mode found at startup; manufacturer automatic restored");
+                }
                 while(!stop) {
                     wake.WaitOne(0);
                     var iteration=Stopwatch.StartNew();
@@ -192,7 +202,10 @@ namespace SwiftEdgeFanControl {
                         Beat(false);
                     }
                 }
-            } catch(Exception e) { log.Write("ERROR",e.ToString());lock(gate)status.Message=e.Message; }
+            } catch(Exception e) {
+                log.Write("ERROR",e.ToString());lock(gate){status.Mode="Auto";status.Message=e.Message;}
+                var updated=StatusUpdated;if(updated!=null)updated();
+            }
             finally {
                 try { Restore();if(ready)Beat(true); }
                 catch(Exception e) { log.Write("CRITICAL","Exit restore: "+e.Message); }

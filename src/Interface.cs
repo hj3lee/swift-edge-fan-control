@@ -62,21 +62,22 @@ namespace SwiftEdgeFanControl {
         string displayedMode="",displayedSample="";int displayedLevel=-1;
         float textZoom=1F;
         public MainForm(bool simulated,AppLog logger,string module,bool hidden) {
+            Files.StartupTrace("MainForm settings begin");
             demo=simulated;startHidden=hidden;log=logger;settings=demo?new Settings():Files.LoadSettings();
             L10n.Set(settings.Language);
-            Ui.Window(this,Ui.AppTitle+(demo?" · DEMO":""),740,400);Build();
+            Files.StartupTrace("MainForm Build begin");Ui.Window(this,Ui.AppTitle+(demo?" · DEMO":""),740,400);Build();Files.StartupTrace("MainForm Build ready");
             EnableResponsiveText(delegate(float factor){modeRow.Height=(int)(Ui.S(46)*factor);},delegate {ResizeLog();FitModeButtons();});log.Added+=OnLog;
 #if DEVELOPMENT
             IEc ec=demo?(IEc)new FakeEc():new PawnEc(module);
 #else
-            IEc ec=new PawnEc(module);
+            Files.StartupTrace("PawnEc begin");IEc ec=new PawnEc(module);Files.StartupTrace("PawnEc ready");
 #endif
             var pawn=ec as PawnEc;if(pawn!=null)pawn.Diagnostic=delegate(string x){log.Write("EC_RETRY",x);};
             controller=new Controller(ec,log,demo);
             controller.StatusUpdated+=delegate {SafeUi(RefreshStatus);};
             controller.ForcedAutomatic+=delegate(Settings s){SafeUi(delegate {settings=s;Selection();nextDisplay=DateTime.MinValue;});};
-            controller.Request(settings);controller.Start();
-            startup.Checked=!demo&&Startup.IsEnabled();startup.AutoCheck=!demo;startup.ForeColor=Ui.Muted;loading=false;
+            Files.StartupTrace("Controller request begin");controller.Request(settings);controller.Start();Files.StartupTrace("Controller started");
+            Files.StartupTrace("Startup task query begin");startup.Checked=!demo&&Startup.IsEnabled();startup.AutoCheck=!demo;startup.ForeColor=Ui.Muted;loading=false;Files.StartupTrace("Startup task query ready");
             timer.Interval=10000;timer.Tick+=delegate {RefreshStatus();};timer.Start();
             SystemEvents.PowerModeChanged+=PowerChanged;FormClosing+=ClosingApp;
             Shown+=delegate {if(startHidden)Hide();};Selection();RefreshStatus();
@@ -185,6 +186,7 @@ namespace SwiftEdgeFanControl {
                 temperature.Text=s.Updated==""?"—°C":s.Temperature+"°C";mode.Text=ModeText(s);
                 rpm.Text=String.Format("FAN 1  {0:N0} RPM     /     FAN 2  {1:N0} RPM",s.Rpm1,s.Rpm2);nextDisplay=DateTime.UtcNow.AddSeconds(10);displayedMode=s.Mode;displayedLevel=s.Level1;displayedSample=s.Updated;
             }
+            if(s.Updated==""&&s.Message!="Starting")description.Text=s.Message;
             string tip=s.Temperature+"°C · "+ModeText(s)+" · "+s.Rpm1+"/"+s.Rpm2+" RPM";tray.Text=tip.Length>63?tip.Substring(0,63):tip;
         }
         void OnLog(string text) {if(!text.Contains("[STATUS]"))return;SafeUi(delegate {if(recentLog.Lines.Length>80)recentLog.Clear();recentLog.AppendText(text+Environment.NewLine);});}

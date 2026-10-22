@@ -8,6 +8,7 @@ using System.Windows.Forms;
 namespace SwiftEdgeFanControl {
     public static class Program {
         [STAThread] public static int Main(string[] args) {
+            Files.StartupTrace("Process start "+String.Join(" ",args));
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
             bool demo=false;
 #if DEVELOPMENT
@@ -30,15 +31,16 @@ namespace SwiftEdgeFanControl {
                 }
                 // Never retain the single-instance mutex across UAC process creation.
                 try {
-                    var log=new AppLog(demo);
+                    Files.StartupTrace("AppLog begin");var log=new AppLog(demo);Files.StartupTrace("AppLog ready");
                     var form=new MainForm(demo,log,module,Array.IndexOf(args,"--tray")>=0);
 #if DEVELOPMENT
                     if(Array.IndexOf(args,"--render-demo")>=0) {
                         form.Show();Application.DoEvents();form.RenderPreview();form.Dispose();return 0;
                     }
 #endif
-                    Application.Run(form);return 0;
+                    Files.StartupTrace("UI message loop begin");Application.Run(form);return 0;
                 } catch(Exception e) {
+                    Files.StartupTrace("Startup error "+e);
                     MessageBox.Show(e.Message,"Swift Edge Fan Control",MessageBoxButtons.OK,MessageBoxIcon.Error);
                     return 2;
                 }
