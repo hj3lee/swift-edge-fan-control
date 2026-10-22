@@ -67,3 +67,9 @@ The user ZIP excludes screenshots, development documentation and test binaries. 
 
 Removed the model/board/BIOS rejection and unused CIM identity code at the user's request. The build no longer references System.Management. Module verification, EC register mapping, sensor checks, 90°C fallback and watchdog behavior are unchanged. This removes an execution restriction; it does not establish compatibility with additional laptops. Historical allowlist descriptions above refer to earlier builds.
 
+## Startup recovery — 2026-10-23
+
+After a reboot, a read on this device found manual mode set (0x00=2), both levels 4, and no current app sensor log. The old controller would terminate initialization on an existing manual bit. Independently clearing that bit and verifying automatic mode allowed the diagnostic app to publish fresh readings again. What set the manual bit during boot is not established.
+
+The worker now arms its watchdog, restores and verifies manufacturer automatic mode when it finds manual mode at startup, and continues sensor monitoring. It does not silently reapply a saved manual setting after this recovery; the user can explicitly select it again. Initialization errors publish status to the UI, an explicit mode request can restart a failed unowned worker, and bounded startup tracing is stored in startup.log. Mock regression tests cover stale manual startup, continued monitoring, explicit rearming and retry after a failed baseline read. A further full reboot of the patched build remains to be tested.
+
