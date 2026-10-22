@@ -16,12 +16,17 @@ namespace SwiftEdgeFanControl {
             Ink=Color.FromArgb(30,41,59), OnAccent=Color.White, Muted=Color.FromArgb(86,101,119);
         public const string AppTitle="Acer Swift Edge SFE16-43 · Fan Control";
         public const string Repository="https://github.com/hj3lee/swift-edge-fan-control";
+        public static readonly Icon AppIcon=LoadIcon();
+        static Icon LoadIcon() {
+            using(var stream=typeof(Ui).Assembly.GetManifestResourceStream("AppIcon"))
+            using(var icon=new Icon(stream))return (Icon)icon.Clone();
+        }
         public static readonly Color BlueTint=Color.FromArgb(235,243,255),Subtle=Color.FromArgb(128,140,157);
         public static float Scale { get { using(var g=Graphics.FromHwnd(IntPtr.Zero))return Math.Max(1,g.DpiX/96F); } }
         public static int S(float value) {return (int)Math.Round(value*Scale);}
         public static Font TextFont(float pixels) {return new Font("Segoe UI",pixels*Scale,FontStyle.Regular,GraphicsUnit.Pixel);}
         public static void Window(Form form,string title,int w,int h) {
-            form.Text=title;form.BackColor=Background;form.ForeColor=Ink;form.Font=TextFont(17);
+            form.Text=title;form.Icon=AppIcon;form.BackColor=Background;form.ForeColor=Ink;form.Font=TextFont(17);
             form.AutoScaleMode=AutoScaleMode.None;form.StartPosition=FormStartPosition.CenterScreen;
             var screen=Screen.PrimaryScreen.WorkingArea;
             form.ClientSize=new Size(Math.Min(S(w),screen.Width-S(32)),Math.Min(S(h),screen.Height-S(48)));
@@ -122,7 +127,7 @@ namespace SwiftEdgeFanControl {
             var menu=new ContextMenuStrip();trayMenu=menu;menu.Items.Add(L10n.T("열기"),null,delegate {Show();WindowState=FormWindowState.Normal;Activate();});
             menu.Items.Add(L10n.T("제조사 자동"),null,delegate {Try(delegate{settings.Mode="Auto";Apply();});});
             menu.Items.Add(L10n.T("종료 · 자동 복귀"),null,delegate {exiting=true;Close();});
-            tray.Icon=SystemIcons.Application;tray.Text="SFE16-43 · Fan Control";tray.ContextMenuStrip=menu;tray.Visible=true;
+            tray.Icon=Ui.AppIcon;tray.Text="SFE16-43 · Fan Control";tray.ContextMenuStrip=menu;tray.Visible=true;
             tray.DoubleClick+=delegate {Show();WindowState=FormWindowState.Normal;Activate();};
         }
         void SetLanguage(string code) {
