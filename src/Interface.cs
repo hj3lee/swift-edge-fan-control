@@ -57,7 +57,7 @@ namespace SwiftEdgeFanControl {
         public MainForm(bool simulated,AppLog logger,string module,bool hidden) {
             demo=simulated;startHidden=hidden;log=logger;settings=demo?new Settings():Files.LoadSettings();
             Ui.Window(this,"Swift Edge Fan Control"+(demo?" · DEMO":""),700,420);Build();
-            EnableResponsiveText(delegate(float factor){modeRow.Height=(int)(Ui.S(48)*factor);ResizeLog();if(IsHandleCreated)BeginInvoke((Action)FitModeButtons);});log.Added+=OnLog;
+            EnableResponsiveText(delegate(float factor){modeRow.Height=(int)(Ui.S(48)*factor);},delegate {ResizeLog();FitModeButtons();});log.Added+=OnLog;
             if(!demo) {var id=DeviceIdentity.Detect();if(!id.Supported)throw new InvalidOperationException("지원되지 않는 하드웨어: "+id);}
             IEc ec=demo?(IEc)new FakeEc():new PawnEc(module);
             var pawn=ec as PawnEc;if(pawn!=null)pawn.Diagnostic=delegate(string x){log.Write("EC_RETRY",x);};
@@ -124,7 +124,7 @@ namespace SwiftEdgeFanControl {
             foreach(var button in levels.Concat(new[]{curveModeButton,autoButton})) {
                 if(button==null||button.ClientSize.Width<1)continue;
                 int measured=TextRenderer.MeasureText(button.Text,button.Font).Width;
-                if(measured>button.ClientSize.Width-6)button.Font=new Font(button.Font.FontFamily,Math.Max(10,button.Font.Size*(button.ClientSize.Width-6)/measured),button.Font.Style,button.Font.Unit);
+                if(measured>button.ClientSize.Width-6)button.Font=SizedFont(button.Font,Math.Max(10,button.Font.Size*(button.ClientSize.Width-6)/measured));
             }
         }
         void ResizeLog() {
@@ -194,8 +194,8 @@ namespace SwiftEdgeFanControl {
             ClientSize=new Size(Ui.S(480),Ui.S(520));SetTextMultiplier(1F);Application.DoEvents();FitModeButtons();
             bool fourLines=recentLog.GetPositionFromCharIndex(recentLog.GetFirstCharIndexFromLine(3)).Y+recentLog.Font.Height<=recentLog.ClientSize.Height-SystemInformation.HorizontalScrollBarHeight;
             bool temperatureFits=temperature.ClientSize.Width>=TextRenderer.MeasureText(temperature.Text,temperature.Font,Size.Empty,TextFormatFlags.NoPadding).Width;
-            if(!fourLines||!temperatureFits||temperature.Font.Size>=wideFont)throw new InvalidOperationException("Responsive UI render validation failed");
             Files.Atomic(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ui-render-checks.json"),Files.Json.Serialize(new {four_status_lines_visible=fourLines,temperature_single_line=temperatureFits,text_shrinks_with_window=temperature.Font.Size<wideFont}));
+            if(!fourLines||!temperatureFits||temperature.Font.Size>=wideFont)throw new InvalidOperationException("Responsive UI render validation failed");
             using(var image=new Bitmap(Width,Height)){DrawToBitmap(image,new Rectangle(0,0,Width,Height));image.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"preview-narrow.png"));}
             using(var editor=new CurveForm(new Settings(),delegate(Settings s){})) {editor.Show();Application.DoEvents();editor.RenderPreview();}
             exiting=true;Close();
