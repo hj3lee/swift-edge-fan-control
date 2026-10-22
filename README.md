@@ -1,3 +1,5 @@
+<img src="assets/app.png" width="64" alt="Fan icon">
+
 # Acer Swift Edge SFE16-43 Fan Control
 
 ## [⬇ DOWNLOAD ZIP · 다운로드](https://github.com/hj3lee/swift-edge-fan-control/raw/refs/heads/main/downloads/SwiftEdgeFanControl-win-x64.zip)
@@ -25,13 +27,6 @@ Temperature, levels and RPMs are read and logged approximately **every 10 second
 ### Build it yourself
 
 The ZIP/EXE is provided for convenience; reviewing and building the source yourself is recommended. **AI-generated code; no professional code review.**
-
-Select **Code → Download ZIP**, extract the source, open PowerShell in that folder, then run:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
-.\build\release\SwiftEdgeFanControl.exe
-```
 
 ### Compatibility and development
 
@@ -64,13 +59,6 @@ App: [MIT](LICENSE). EC module: [LGPL-2.1-or-later](vendor/NOTICE.md). Not affil
 ### 직접 빌드
 
 편의상 ZIP/EXE를 제공하지만 소스 검토와 직접 빌드를 권장합니다. **AI로 작성되었으며 전문적인 코드 리뷰를 받지 않았습니다.**
-
-**Code → Download ZIP**으로 소스를 받아 압축을 풀고 해당 폴더에서 PowerShell을 열어 실행합니다.
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
-.\build\release\SwiftEdgeFanControl.exe
-```
 
 ### 호환성과 제작 과정
 
