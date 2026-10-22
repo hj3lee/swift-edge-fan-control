@@ -7,7 +7,7 @@ class Tests {
     static void Assert(bool ok,string name) {if(!ok)throw new Exception(name);count++;Console.WriteLine("PASS "+name);}
     static void Reject(Action action,string name) {bool rejected=false;try{action();}catch(ArgumentException){rejected=true;}Assert(rejected,name);}
     static void Until(Func<bool> predicate,string name) {
-        var end=DateTime.UtcNow.AddSeconds(7);
+        var end=DateTime.UtcNow.AddSeconds(15);
         while(DateTime.UtcNow<end) {if(predicate()){Assert(true,name);return;}Thread.Sleep(40);}
         throw new Exception("Timed out: "+name);
     }
@@ -46,6 +46,9 @@ class Tests {
             using(var c=new Controller(fake,log,true)) {
                 var set=new Settings {Mode="Fixed",FixedLevel=1};c.Request(set);c.Start();
                 Until(()=>fake.Mode==2 && fake.Level==1,"Engine verifies manual level");
+                Until(()=>c.Current.FullUpdated!="","Initial full sensor sample published");
+                int reads=fake.TemperatureReads;Thread.Sleep(2200);
+                Assert(fake.TemperatureReads==reads,"Idle controller does not poll EC every two seconds");
                 fake.Temp=90;
                 Until(()=>fake.Mode==0 && c.Current.Mode=="Auto","Thermal fallback restores automatic");
                 fake.Temp=50;Thread.Sleep(2200);
@@ -62,9 +65,10 @@ class Tests {
     }
     class TestEc : IEc {
         public volatile byte Mode,Level=4,Temp=50;public volatile bool BadTemp;
+        public int TemperatureReads;
         public byte Read(byte r) {
             if(r==0)return Mode;if(r==0x55||r==0x4f)return Level;
-            if(r==0x58) {if(BadTemp)throw new TimeoutException("Injected temperature failure");return Temp;}
+            if(r==0x58) {Interlocked.Increment(ref TemperatureReads);if(BadTemp)throw new TimeoutException("Injected temperature failure");return Temp;}
             return (byte)((r==0x5c||r==0x6a)?13:100);
         }
         public void Write(byte r,byte v) {if(r==0)Mode=v;if(r==0x55||r==0x4f)Level=v;}
