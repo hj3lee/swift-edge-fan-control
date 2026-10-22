@@ -73,3 +73,9 @@ After a reboot, a read on this device found manual mode set (0x00=2), both level
 
 The worker now arms its watchdog, restores and verifies manufacturer automatic mode when it finds manual mode at startup, and continues sensor monitoring. It does not silently reapply a saved manual setting after this recovery; the user can explicitly select it again. Initialization errors publish status to the UI, an explicit mode request can restart a failed unowned worker, and bounded startup tracing is stored in startup.log. Mock regression tests cover stale manual startup, continued monitoring, explicit rearming and retry after a failed baseline read. A further full reboot of the patched build remains to be tested.
 
+## Saved-mode restoration and file sharing — 2026-10-23
+
+Supersedes the startup Auto latch described above: clearing a pre-existing manual EC state no longer changes the requested or saved mode. The next temperature sample applies the saved fixed level or curve. Suspend uses temporary Auto without saving it; resume reloads the saved settings. High-temperature and sensor/control-error fallbacks still persist Auto.
+
+A live log also recorded an IOException from File.InternalReplace, followed by worker exit and automatic restoration. Atomic writes now use unique temporary files, serialized in-process writers and bounded retries. Settings and watchdog reads allow FileShare.Delete, so readers do not block atomic replacement. Regression checks cover saved fixed level 3 over an initial EC level 4, saved curve at 60°C, transient sharing violations, a reader held open during replacement and concurrent JSON writers. Full reboot and sleep/wake of this revision remain untested.
+

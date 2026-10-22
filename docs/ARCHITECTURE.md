@@ -18,7 +18,7 @@ File writes use a temporary file plus replacement. The watchdog retains the last
 
 The UI explicitly installs logon startup only when its checkbox is selected. Executable and module are copied to Program Files; the task uses the current user's interactive token and highest available privileges, with `IgnoreNew`, battery execution enabled and no run-time limit. No password is stored. The normal app singleton prevents two UI controllers. Demo has a different singleton and cannot control hardware. The user should also stop unrelated EC control tools; they do not share this app's singleton.
 
-Windows suspend/resume events request manufacturer automatic mode. Suspend waits a bounded time for the worker to relinquish manual ownership. Resume remains automatic. This has not been validated by an actual sleep/wake cycle in the first release; late power notifications, a hung OS, or terminating both processes can defeat cleanup. The app does not call an API to block Windows sleep.
+Suspend temporarily requests manufacturer automatic mode without changing saved settings and waits a bounded time for the worker to relinquish manual ownership. Resume reloads and requests the saved mode. Startup clears any pre-existing manual EC state, verifies automatic mode and then applies the saved fixed/curve/automatic selection after reading temperature. Thermal and control-error fallbacks still latch automatic mode. Actual sleep/wake and reboot of this revision remain to be tested. The app does not block Windows sleep.
 
 ## Fail-safe boundaries
 
