@@ -65,14 +65,29 @@ class Tests {
                 fake.BadTemp=true;
                 Until(()=>fake.Mode==0 && c.Current.Mode=="Auto","Sensor failure restores automatic");
             }
+            var startupFake=new TestEc {Mode=2,Level=4};
+            using(var c=new Controller(startupFake,log,true)) {
+                c.Request(new Settings {Mode="Fixed",FixedLevel=1});c.Start();
+                Until(()=>startupFake.Mode==0&&c.Current.FullUpdated!="","Startup manual EC state restores auto and publishes sensors");
+                Assert(c.Current.Mode=="Auto","Startup recovery does not silently apply saved manual mode");
+                c.Request(new Settings {Mode="Fixed",FixedLevel=1});
+                Until(()=>startupFake.Mode==2&&startupFake.Level==1,"User can control fans after startup recovery");
+            }
+            var failedStartup=new TestEc {BadMode=true};
+            using(var c=new Controller(failedStartup,log,true)) {
+                c.Request(new Settings {Mode="Auto"});c.Start();
+                Until(()=>c.Current.Message.Contains("Cannot read EC baseline"),"Startup read failure is reported");
+                Thread.Sleep(100);failedStartup.BadMode=false;c.Request(new Settings {Mode="Auto"});
+                Until(()=>c.Current.FullUpdated!="","Explicit request restarts a failed startup worker");
+            }
             Console.WriteLine(count+" checks passed. No real hardware was opened.");return 0;
         } catch(Exception e) {Console.Error.WriteLine(e);return 1;}
     }
     class TestEc : IEc {
-        public volatile byte Mode,Level=4,Temp=50;public volatile bool BadTemp;
+        public volatile byte Mode,Level=4,Temp=50;public volatile bool BadTemp,BadMode;
         public int TemperatureReads;
         public byte Read(byte r) {
-            if(r==0)return Mode;if(r==0x55||r==0x4f)return Level;
+            if(r==0){if(BadMode)throw new TimeoutException("Injected startup failure");return Mode;}if(r==0x55||r==0x4f)return Level;
             if(r==0x58) {Interlocked.Increment(ref TemperatureReads);if(BadTemp)throw new TimeoutException("Injected temperature failure");return Temp;}
             return (byte)((r==0x5c||r==0x6a)?13:100);
         }
