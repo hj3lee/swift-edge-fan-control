@@ -68,8 +68,10 @@ namespace SwiftEdgeFanControl {
         readonly string heartbeatPath;
         Settings requested=new Settings(); Status status=new Status();
         volatile bool stop; Thread worker; Process watchdog;
-        volatile bool owned; int expectedLevel,cycle; long version, appliedVersion=-1;
+        public const int SampleIntervalMilliseconds=10000;
+        volatile bool owned; int expectedLevel; long version, appliedVersion=-1;
         public event Action<Settings> ForcedAutomatic;
+        public event Action StatusUpdated;
         public Controller(IEc hardware,AppLog logger,bool simulated) {
             ec=hardware;log=logger;demo=simulated;
             heartbeatPath=Path.Combine(Files.Root,"sessions",Guid.NewGuid().ToString("N")+".json");
@@ -119,7 +121,7 @@ namespace SwiftEdgeFanControl {
             ec.Write(0,(byte)(mode|2));ec.Write(0x55,(byte)level);ec.Write(0x4f,(byte)level);
             if((ec.Read(0)&2)==0 || ec.Read(0x55)!=level || ec.Read(0x4f)!=level)
                 throw new IOException("Requested level readback mismatch");
-            expectedLevel=level;cycle=0;log.Write("APPLY","Both fans level "+level+" verified");
+            expectedLevel=level;log.Write("APPLY","Both fans level "+level+" verified");
         }
         public void ForceAuto(string reason) {
             var s=Files.LoadSettings();s.Mode="Auto";
@@ -135,7 +137,6 @@ namespace SwiftEdgeFanControl {
             Restore();
         }
         void Run() {
-            DateTime nextLog=DateTime.MinValue;
             bool ready=false;
             try {
                 byte baseline=0;bool haveBaseline=false;
@@ -147,6 +148,7 @@ namespace SwiftEdgeFanControl {
                 if((baseline&2)!=0)throw new IOException("Another manual controller is active; no takeover performed");
                 EnsureWatchdog();ready=true;
                 while(!stop) {
+                    wake.WaitOne(0);
                     var iteration=Stopwatch.StartNew();
                     try {
                         if(owned && !demo && (watchdog==null || watchdog.HasExited))throw new IOException("Watchdog stopped; automatic fallback");
@@ -159,10 +161,9 @@ namespace SwiftEdgeFanControl {
                         if(temp>=90 && settings.Mode!="Auto") { LatchAuto("CPU >=90°C; automatic latched until user action");settings.Mode="Auto"; }
                         int level=policy.Select(settings,temp,DateTime.UtcNow);
                         if(level==0)Restore();else ApplyLevel(level);
-                        bool full=(cycle++%3)==0;
                         Status next=Current;next.Temperature=temp;next.Mode=settings.Mode;next.Owned=owned;
                         next.Updated=DateTime.Now.ToString("HH:mm:ss");
-                        if(full) {
+                        {
                             int mode=ec.Read(0), a=ec.Read(0x55), b=ec.Read(0x4f);
                             int rpm1=ec.Read(0x5c)*256+ec.Read(0x5d),rpm2=ec.Read(0x6a)*256+ec.Read(0x6b);
                             if(owned && ((mode&2)==0||a!=expectedLevel||b!=expectedLevel))throw new IOException("External level change detected; automatic fallback");
@@ -172,10 +173,7 @@ namespace SwiftEdgeFanControl {
                         var pawn=ec as PawnEc;if(pawn!=null) { next.Attempts=pawn.ReadAttempts;next.Timeouts=pawn.ReadTimeouts; }
                         next.Message=demo?"DEMO · no hardware access":"Sensor read verified";
                         lock(gate)status=next;
-                        if(DateTime.UtcNow>=nextLog) {
-                            log.Write("STATUS",Presentation.StatusLine(temp,settings.Mode,next.Level1,next.Level2,next.Rpm1,next.Rpm2));
-                            nextLog=DateTime.UtcNow.AddSeconds(20);
-                        }
+                        log.Write("STATUS",Presentation.StatusLine(temp,settings.Mode,next.Level1,next.Level2,next.Rpm1,next.Rpm2));
                     } catch(Exception e) {
                         try { LatchAuto(e.Message); }
                         catch(Exception restoreError) {
@@ -186,7 +184,13 @@ namespace SwiftEdgeFanControl {
                         }
                         lock(gate) { status.Mode="Auto";status.Owned=false;status.Message=e.Message; }
                     }
-                    wake.WaitOne(Math.Max(0,2000-(int)iteration.ElapsedMilliseconds));
+                    var updated=StatusUpdated;if(updated!=null)updated();
+                    // Keep the 8-second crash watchdog alive while sleeping, without polling EC.
+                    while(!stop) {
+                        int remaining=SampleIntervalMilliseconds-(int)iteration.ElapsedMilliseconds;
+                        if(remaining<=0||wake.WaitOne(Math.Min(2000,remaining)))break;
+                        Beat(false);
+                    }
                 }
             } catch(Exception e) { log.Write("ERROR",e.ToString());lock(gate)status.Message=e.Message; }
             finally {
