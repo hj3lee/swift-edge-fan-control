@@ -14,6 +14,11 @@ class Tests {
     static int Main() {
         try {
             var s=new Settings();var p=new CurvePolicy();var t=DateTime.UtcNow;
+            Assert(s.Language=="en","English is the default UI language");
+            Assert(L10n.Codes.Length==6&&L10n.CatalogComplete,"All six language catalogs have complete entries");
+            foreach(string code in L10n.Codes){L10n.Set(code);Assert(L10n.Description("Fixed",3).Contains("3")&&L10n.T("팬 커브 모드")!="","Localized mode and description: "+code);}
+            L10n.Set("missing");Assert(L10n.Language=="en","Unknown language falls back to English");
+            s.Language="de";Assert(Files.Json.Deserialize<Settings>(Files.Json.Serialize(s)).Language=="de","Language preference survives settings serialization");
             Assert(s.Mode=="Curve","New settings default to fan curve mode");s.Mode="Auto";
             Assert(p.Select(s,50,t)==0,"Manufacturer auto");
             Assert(Presentation.Describe("Fixed",1)=="팬 커브를 1단계로 고정합니다.","Fixed-mode description");
