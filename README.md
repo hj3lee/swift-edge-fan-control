@@ -66,10 +66,13 @@ Windows x64, .NET Framework 4.x 컴파일러를 사용합니다. Electron, Node,
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
-.\build\SwiftEdgeFanControl.exe --demo
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Development
+.\build\development\SwiftEdgeFanControl.exe --demo
 ```
 
-`build.ps1`은 소스를 컴파일하고 실제 하드웨어에 접근하지 않는 정책·오류 복귀 검사를 실행합니다. `--demo`는 가상 센서만 사용하고 실제 설정/시작 프로그램을 변경하지 않습니다. 실제 기기 시험은 사용자가 의도한 경우에만 실행하세요. `--smoke30`은 실제 양쪽 팬 1단계를 짧게 시험하고 자동 복귀하므로 일반 미리보기용이 아닙니다.
+`build.ps1`은 소스를 컴파일하고 실제 하드웨어에 접근하지 않는 정책·오류 복귀 검사를 실행합니다. 기본 배포 빌드는 `build/release`에 생성됩니다. `-Development` 빌드만 가상 센서 `--demo`와 화면 검증 `--render-demo`를 포함하며, 관련 코드는 `tests/Preview.cs`에 분리했습니다. 실제 팬을 강제로 조작하는 `--smoke30`, `--smoke-crash`, 시작 작업을 변경하는 `--test-startup` 명령은 삭제했습니다.
+
+`package.ps1`은 배포 빌드와 검사를 실행한 뒤 경량 ZIP을 만듭니다. ZIP에는 실행 파일, EC 모듈 한 벌, 짧은 사용 안내와 라이선스·모듈 소스만 포함합니다. 미리보기 이미지, 개발 문서와 테스트 실행 파일은 포함하지 않습니다. 자세한 문서와 AI 이식 절차는 이 저장소에서 볼 수 있습니다.
 
 ## 어떻게 작동하나요?
 
