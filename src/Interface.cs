@@ -76,7 +76,6 @@ namespace SwiftEdgeFanControl {
             var pawn=ec as PawnEc;if(pawn!=null)pawn.Diagnostic=delegate(string x){log.Write("EC_RETRY",x);};
             controller=new Controller(ec,log,demo);
             controller.StatusUpdated+=delegate {SafeUi(RefreshStatus);};
-            controller.ForcedAutomatic+=delegate(Settings s){SafeUi(delegate {settings=s;Selection();nextDisplay=DateTime.MinValue;});};
             Files.StartupTrace("Controller request begin");controller.Request(settings);controller.Start();Files.StartupTrace("Controller started");
             Files.StartupTrace("Startup task query begin");startup.Checked=!demo&&Startup.IsEnabled();startup.AutoCheck=!demo;startup.ForeColor=Ui.Muted;loading=false;Files.StartupTrace("Startup task query ready");
             timer.Interval=10000;timer.Tick+=delegate {RefreshStatus();};timer.Start();
@@ -128,14 +127,14 @@ namespace SwiftEdgeFanControl {
             root.SizeChanged+=delegate {int width=Math.Max(Ui.S(180),root.ClientSize.Width);description.MaximumSize=new Size(width,0);};
             var menu=new ContextMenuStrip();trayMenu=menu;menu.Items.Add(L10n.T("열기"),null,delegate {Show();WindowState=FormWindowState.Normal;Activate();});
             menu.Items.Add(L10n.T("제조사 자동"),null,delegate {Try(delegate{settings.Mode="Auto";Apply();});});
-            menu.Items.Add(L10n.T("종료 · 자동 복귀"),null,delegate {exiting=true;Close();});
+            menu.Items.Add(L10n.T("종료"),null,delegate {exiting=true;Close();});
             tray.Icon=Ui.AppIcon;tray.Text="SFE16-43 · Fan Control";tray.ContextMenuStrip=menu;tray.Visible=true;
             tray.DoubleClick+=delegate {Show();WindowState=FormWindowState.Normal;Activate();};
         }
         void SetLanguage(string code) {
             settings.Language=code;L10n.Set(code);if(!demo)Files.SaveSettings(settings);
             zoom.Items[0]=L10n.T("자동");zoom.AccessibleName=L10n.T("글자 크기");language.AccessibleName=L10n.T("언어");
-            trayMenu.Items[0].Text=L10n.T("열기");trayMenu.Items[1].Text=L10n.T("제조사 자동");trayMenu.Items[2].Text=L10n.T("종료 · 자동 복귀");
+            trayMenu.Items[0].Text=L10n.T("열기");trayMenu.Items[1].Text=L10n.T("제조사 자동");trayMenu.Items[2].Text=L10n.T("종료");
             if(curveWindow!=null&&!curveWindow.IsDisposed)curveWindow.ApplyLanguage();
             Selection();nextDisplay=DateTime.MinValue;RefreshStatus();RefreshResponsiveText();
         }
@@ -187,18 +186,15 @@ namespace SwiftEdgeFanControl {
                 temperature.Text=s.Updated==""?"—°C":s.Temperature+"°C";mode.Text=ModeText(s);
                 rpm.Text=String.Format("FAN 1  {0:N0} RPM     /     FAN 2  {1:N0} RPM",s.Rpm1,s.Rpm2);nextDisplay=DateTime.UtcNow.AddSeconds(10);displayedMode=s.Mode;displayedLevel=s.Level1;displayedSample=s.Updated;
             }
-            if(s.Updated==""&&s.Message!="Starting")description.Text=s.Message;
+            if(s.Message!="Sensor read verified"&&s.Message!="Starting")description.Text=s.Message;else description.Text=L10n.Description(settings.Mode,settings.FixedLevel);
             string tip=s.Temperature+"°C · "+ModeText(s)+" · "+s.Rpm1+"/"+s.Rpm2+" RPM";tray.Text=tip.Length>63?tip.Substring(0,63):tip;
         }
         void OnLog(string text) {if(!text.Contains("[STATUS]"))return;SafeUi(delegate {if(recentLog.Lines.Length>80)recentLog.Clear();recentLog.AppendText(text+Environment.NewLine);});}
         void SafeUi(Action action) {if(IsDisposed||Disposing||!IsHandleCreated)return;if(InvokeRequired){try{BeginInvoke(action);}catch(InvalidOperationException){}}else action();}
         void Try(Action action) {try{action();}catch(Exception e){MessageBox.Show(this,L10n.T(e.Message),L10n.T("설정 확인"),MessageBoxButtons.OK,MessageBoxIcon.Warning);}}
         void PowerChanged(object sender,PowerModeChangedEventArgs e) {
-            if(e.Mode!=PowerModes.Suspend&&e.Mode!=PowerModes.Resume)return;
-            if(e.Mode==PowerModes.Suspend) {
-                controller.ForceAuto("Power state: Suspend",false);
-                var wait=Stopwatch.StartNew();while(controller.IsOwned&&wait.ElapsedMilliseconds<5000)Thread.Sleep(25);
-            } else SafeUi(delegate {settings=demo?settings:Files.LoadSettings();controller.Request(settings);Selection();nextDisplay=DateTime.MinValue;});
+            if(e.Mode!=PowerModes.Resume)return;
+            SafeUi(delegate {controller.Request(settings);Selection();nextDisplay=DateTime.MinValue;});
         }
         void ClosingApp(object sender,FormClosingEventArgs e) {
             if(!exiting&&e.CloseReason==CloseReason.UserClosing){e.Cancel=true;Hide();return;}

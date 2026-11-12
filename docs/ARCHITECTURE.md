@@ -1,39 +1,19 @@
 # Architecture and operational limits
 
-## Components
+## Control policy
 
-- `Policy.cs`: validation and deterministic fixed/curve decisions. Curve temperatures strictly increase, levels never decrease as temperature increases, first point is 0°C. Heating changes immediately; cooling crosses the current-level threshold minus hysteresis and waits the configured delay. CPU ≥90°C wins over either manual mode.
-- `Hardware.cs`: signed-module SHA-256 verification, dynamically loaded official PawnIOLib and port protocol. No model/board/BIOS allowlist is enforced. The EC register mapping remains the one tested on SFE16-43; fake hardware is in development-only `tests/Preview.cs`. Individual read transactions hold `Global\Access_EC`; retry backoff happens after release. Writes are not blindly repeated after an ambiguous timeout.
-- `Controller.cs`: background worker, sensor validation, applied-level readback, independent watchdog heartbeat and bounded rotating logs. No continuous reassertion against an external controller. A mismatch latches automatic mode and requires explicit user action.
-- `App.cs`: application entry point and logon-task registration.
-- `Interface.cs`: DPI-scaled native Windows Forms dashboard, selectable text size, bounded collapsible logs, separate draggable curve editor and tray controls. Real mode is elevated; demo mode is unprivileged and opens no driver. This first version elevates the whole app, not a separately sandboxed privileged service.
+Only a selected `Auto` mode clears EC manual-control bit 1. Fixed and curve modes do not switch to manufacturer control at high temperature, on sensor/control failures, suspend, resume, exit or process failure. No independent watchdog is launched. Legacy `--watchdog` invocations exit without hardware access. Firmware thermal override has not been verified.
 
-## Cadence and display freshness
+The worker reads the actual mode and both levels before applying the requested level. Hardware drift is corrected on the next successful sample. Fixed control does not depend on temperature reads; curve control requires a valid temperature (10–110 C). Sensor errors retain the request and hardware state, report an error and retry after one second. Errors never save Auto to settings.
 
-CPU temperature, control mode, fan levels and tachometer bytes are read together around every 10 seconds. Real elapsed cadence can grow during retries. Each successful complete sample publishes the dashboard and a STATUS log line. User mode requests wake the worker immediately. During idle waits, the worker refreshes its heartbeat every 2 seconds without accessing the EC; the independent watchdog retains its 8-second stale-heartbeat timeout. No independent heartbeat thread masks a worker stuck during an EC transaction. A failed sensor read still latches manufacturer automatic control. The 90°C threshold is evaluated at sample time, so thermal response can be delayed by up to a sampling interval plus communication time. Tachometer byte reads are sequential, not an atomic 16-bit snapshot; occasional edge artifacts are possible.
+## Startup, resume and cadence
 
-File writes use a temporary file plus replacement. The watchdog retains the last valid heartbeat through a single sharing/read error; it does not interpret one failed file read as an 8-second sensor outage. Cross-process log writes use a separate named mutex. A readiness file must be present before the first manual write; loss of the watchdog process also causes fallback.
+The UI loads the saved selection and starts one worker. Startup does not temporarily clear manual control. Failed initial reads are retried automatically. Resume requests the current selection again and resets curve hysteresis state. Suspend and exit leave the EC state unchanged. To release control, select Manufacturer default before exiting.
 
-## Startup and power
+Successful samples wait about ten seconds before the next iteration; requests interrupt that wait. Curve heating raises the level immediately; cooling uses configured hysteresis and delay. The final curve point remains applicable above 90 C. Tachometer bytes are sequential reads and may show edge artifacts; they do not trigger automatic mode changes.
 
-The UI explicitly installs logon startup only when its checkbox is selected. Executable and module are copied to Program Files; the task uses the current user's interactive token and highest available privileges, with `IgnoreNew`, battery execution enabled and no run-time limit. No password is stored. The normal app singleton prevents two UI controllers. Demo has a different singleton and cannot control hardware. The user should also stop unrelated EC control tools; they do not share this app's singleton.
+## Hardware and persistence
 
-Suspend temporarily requests manufacturer automatic mode without changing saved settings and waits a bounded time for the worker to relinquish manual ownership. Resume reloads and requests the saved mode. Startup clears any pre-existing manual EC state, verifies automatic mode and then applies the saved fixed/curve/automatic selection after reading temperature. Thermal and control-error fallbacks still latch automatic mode. Actual sleep/wake and reboot of this revision remain to be tested. The app does not block Windows sleep.
+PawnIO/module hash verification and the global EC transaction mutex remain in place. Read transactions have three attempts with backoff; ambiguous write failures are checked against actual hardware on retry. Settings are saved only by user settings actions. Atomic file replacement and bounded rotating logs are retained. Logon registration uses the current user's elevated interactive task and Program Files executable. The global app singleton prevents multiple UI controllers.
 
-## Fail-safe boundaries
-
-Restore clears only EC control bit 1 and checks the result. If the main process cannot restore, it stops refreshing the heartbeat and leaves the watchdog armed to retry. Both processes depend on the same functioning driver and EC. Neither can fix a disconnected or unresponsive EC, a frozen OS or power loss. Automatic mode is a firmware behavior, not proof of a particular cooling performance.
-
-The 90°C threshold is a user-requested fallback setting, not a manufacturer-specified limit and not a limit for every component. It is immutable in this first UI. A safety fallback saves Auto as the selected mode so startup does not silently restore a prior faulting manual mode.
-
-## Remaining work
-
-Find the root cause of EC read contention and unexpected level changes; evaluate a supported driver-side atomic EC transaction rather than extending polling forever. Validate all 1–7 levels, app duration endurance, battery power, suspend/resume and logon task behavior on real hardware. Code tests and mock temperatures cannot establish hardware support. No internet telemetry is implemented.
-
-## Responsive display
-
-`ResponsiveForm.cs` handles window/screen bounds and WM_DPICHANGED; fonts and spacing are fitted from a baseline layout with a debounced UI timer. This does not change EC sampling cadence. The visible log filters for STATUS only; the controller emits a concise STATUS body, while diagnostic events remain on disk. New settings default to Curve, explicit Auto paths (including smoke-test cleanup) remain Auto.
-
-`Localization.cs` provides six in-process UI catalogs (en/ko/ja/zh/es/de), with English as the default and unknown-code fallback. The selected code is stored in Settings.Language; old settings without the field get the constructor's English default. UI language changes save preferences without issuing a fan-mode request. Static control bindings, dynamic mode strings, editor headers and tray labels are refreshed together. Curve saves preserve the current UI language. Technical logs retain their existing machine-readable format.
-
-Rounded controls explicitly paint an opaque ancestor background during both background and foreground painting. Transparent container colors must never be passed directly to Graphics.Clear on the native target, and the foreground paint path must not assume a background-paint callback already ran.
+EC communication contention remains unresolved. A failed sensor cannot supply a new curve target, and a crashed process cannot update cooling. Earlier validation documents describe historical automatic-fallback behavior, which is removed in this revision.

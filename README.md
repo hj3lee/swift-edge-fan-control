@@ -14,7 +14,7 @@ A tray app for reducing fan noise on the **Acer Swift Edge SFE16-43**. Choose fi
 
 The app uses the signed **PawnIO driver** and its `LpcACPIEC` module to access the laptop's embedded controller (EC). It enables manual control, sends level commands to both fans, and reads back the result.
 
-Temperature, levels and RPMs are read and logged approximately **every 10 seconds**. A sampled CPU temperature **≥90°C** or a persistent sensor/control error returns control to manufacturer automatic mode.
+Temperature, levels and RPMs are read and logged approximately **every 10 seconds**. Only selecting Manufacturer default releases control. Temperature, sensor errors, suspend/resume, crashes and exit do not trigger automatic release. Errors retain the requested mode and retry; fixed/curve control is reapplied after hardware drift. Firmware thermal override has not been verified.
 
 ### How to use
 
@@ -44,7 +44,7 @@ App: [MIT](LICENSE). EC module: [LGPL-2.1-or-later](vendor/NOTICE.md). Not affil
 
 서명된 **PawnIO 드라이버**와 `LpcACPIEC` 모듈을 통해 EC에 접근합니다. 수동 제어를 켜고 양쪽 팬에 단계 명령을 보낸 뒤 다시 읽어 확인합니다.
 
-온도·단계·RPM을 약 **10초마다** 읽고 기록합니다. 측정된 CPU 온도가 **90°C 이상**이거나 센서·제어 오류가 지속되면 제조사 자동 제어로 복귀합니다.
+온도·단계·RPM을 약 **10초마다** 읽고 기록합니다. 사용자가 **제조사 기본**을 선택한 경우에만 제어를 해제합니다. 고온·통신 오류·절전·종료 시 자동 복귀하지 않습니다. 오류 시 선택한 모드를 보존하고 재시도하며, EC 설정이 달라지면 다시 적용합니다. 펌웨어의 고온 강제 제어 여부는 검증하지 않았습니다.
 
 ### 사용 방법
 

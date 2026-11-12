@@ -19,7 +19,7 @@ namespace SwiftEdgeFanControl {
             }
 #endif
             string module=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"LpcACPIEC.bin");
-            if(args.Length==2 && args[0]=="--watchdog")return Controller.Watchdog(args[1],module);
+            if(args.Length==2 && args[0]=="--watchdog")return 0; // Legacy watchdog invocation performs no hardware writes.
             bool fresh;
             using(var single=new Mutex(true,demo?@"Local\SwiftEdgeFanControlDemo":@"Global\SwiftEdgeFanControlApp",out fresh)) {
                 if(!fresh) { MessageBox.Show("Swift Edge Fan Control is already running. Check the tray icon.");return 1; }

@@ -1,3 +1,13 @@
+# Current revision — 2026-11-13
+
+Automatic manufacturer-mode transitions were removed at the user's request. The historical results below refer to earlier builds and do not describe the current control policy.
+
+- Release build and all 61 checks passed without opening real hardware.
+- Fake EC checks cover temperature >=90 C without switching modes, explicit Auto release, external level correction, temperature-read failure retention and recovery, exit retention, startup from level 4 to saved fixed/curve settings, and automatic retry after initial EC failure.
+- Installed executable was replaced, its SHA-256 matched the built executable, and the app restarted with the existing saved curve. Real logs showed CPU 53–55 C, both fans at level 1 and approximately 3,470/3,670 RPM. Intermittent read retries did not switch mode.
+- The user subsequently reported that operation appeared correct. Reboot, physical high-temperature override and repeated sleep/resume testing have not been performed for this revision. The original intermittent level-4 event's underlying hardware cause remains unconfirmed.
+
+---
 # Validation — 2026-10-22 KST
 
 ## Current native app
@@ -78,4 +88,3 @@ The worker now arms its watchdog, restores and verifies manufacturer automatic m
 Supersedes the startup Auto latch described above: clearing a pre-existing manual EC state no longer changes the requested or saved mode. The next temperature sample applies the saved fixed level or curve. Suspend uses temporary Auto without saving it; resume reloads the saved settings. High-temperature and sensor/control-error fallbacks still persist Auto.
 
 A live log also recorded an IOException from File.InternalReplace, followed by worker exit and automatic restoration. Atomic writes now use unique temporary files, serialized in-process writers and bounded retries. Settings and watchdog reads allow FileShare.Delete, so readers do not block atomic replacement. Regression checks cover saved fixed level 3 over an initial EC level 4, saved curve at 60°C, transient sharing violations, a reader held open during replacement and concurrent JSON writers. Full reboot and sleep/wake of this revision remain untested.
-

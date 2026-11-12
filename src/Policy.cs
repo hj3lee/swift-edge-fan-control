@@ -64,7 +64,6 @@ namespace SwiftEdgeFanControl {
         public void Reset() { current=0; pending=0; }
         public int Select(Settings settings, int temperature, DateTime now) {
             settings.Validate();
-            if (temperature >= 90) return 0;
             if(settings.Mode == "Auto") return 0;
             if(settings.Mode == "Fixed") return settings.FixedLevel;
             int target=settings.Curve.Last(p=>p.Temperature<=temperature).Level;

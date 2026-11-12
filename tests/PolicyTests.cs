@@ -29,7 +29,7 @@ class Tests {
             Assert(Presentation.TextScale(700,700,800,600,420)<=Presentation.TextScale(700,700,1920,1080,420),"Text respects available screen size");
             s.Mode="Fixed";
             for(int level=1;level<=7;level++) {s.FixedLevel=level;Assert(p.Select(s,50,t)==level,"Fixed level "+level);}
-            Assert(p.Select(s,90,t)==0,"90 C overrides fixed mode");
+            Assert(p.Select(s,90,t)==7,"90 C preserves fixed mode");
             var defaults=new Settings {Mode="Curve"};var boundary=new CurvePolicy();
             Assert(boundary.Select(defaults,59,t)==1,"Default curve below 60 C stays level 1");
             Assert(boundary.Select(defaults,60,t)==2,"Default curve at 60 C enters level 2");
@@ -43,7 +43,7 @@ class Tests {
             Assert(p.Select(s,62,t.AddSeconds(9))==3,"Down timer holds");
             Assert(p.Select(s,62,t.AddSeconds(10))==2,"Cooling lowers after delay");
             Assert(p.Select(s,88,t.AddSeconds(11))==7,"Fast heating jumps levels");
-            Assert(p.Select(s,90,t.AddSeconds(12))==0,"90 C overrides curve");
+            Assert(p.Select(s,90,t.AddSeconds(12))==7,"90 C preserves curve");
             s.FixedLevel=8;Reject(s.Validate,"Reject out-of-range level");s.FixedLevel=1;
             s.Curve[1].Temperature=0;Reject(s.Validate,"Reject duplicate temperature");s=new Settings();
             s.Curve[2].Level=1;Reject(s.Validate,"Reject decreasing curve levels");
@@ -54,17 +54,21 @@ class Tests {
                 Until(()=>c.Current.FullUpdated!="","Initial full sensor sample published");
                 int reads=fake.TemperatureReads;Thread.Sleep(2200);
                 Assert(fake.TemperatureReads==reads,"Idle controller does not poll EC every two seconds");
-                fake.Temp=90;
-                Until(()=>fake.Mode==0 && c.Current.Mode=="Auto","Thermal fallback restores automatic");
-                fake.Temp=50;Thread.Sleep(2200);
-                Assert(fake.Mode==0,"Cooling does not silently rearm manual mode");
-                c.Request(set);Until(()=>fake.Mode==2,"Explicit user action rearms manual");
-                fake.Level=4;
-                Until(()=>fake.Mode==0 && c.Current.Mode=="Auto","External level change falls back");
-                c.Request(set);Until(()=>fake.Mode==2,"Manual rearmed for sensor failure test");
-                fake.BadTemp=true;
-                Until(()=>fake.Mode==0 && c.Current.Mode=="Auto","Sensor failure restores automatic");
+                fake.Temp=90;c.Request(set);
+                Until(()=>c.Current.Temperature==90,"Hot sample published without automatic fallback");
+                Assert(fake.Mode==2&&c.Current.Mode=="Fixed","High temperature retains requested mode");
+                fake.Level=4;c.Request(set);
+                Until(()=>fake.Level==1,"External level drift is corrected");
+                fake.BadTemp=true;c.Request(set);
+                Until(()=>c.Current.Message.Contains("Retry pending"),"Sensor failure reported");
+                Assert(fake.Mode==2&&c.Current.Mode=="Fixed","Sensor failure preserves mode");
+                fake.BadTemp=false;fake.Temp=50;
+                Until(()=>c.Current.Message=="Sensor read verified","Sensor recovery retries automatically");
+                c.Request(new Settings {Mode="Auto"});
+                Until(()=>fake.Mode==0,"Explicit Auto releases control");
+                c.Request(set);Until(()=>fake.Mode==2,"Manual selected again");
             }
+            Assert(fake.Mode==2,"Exit does not switch to manufacturer mode");
             var startupFake=new TestEc {Mode=2,Level=4};
             using(var c=new Controller(startupFake,log,true)) {
                 c.Request(new Settings {Mode="Fixed",FixedLevel=3});c.Start();
@@ -81,9 +85,9 @@ class Tests {
             var failedStartup=new TestEc {BadMode=true};
             using(var c=new Controller(failedStartup,log,true)) {
                 c.Request(new Settings {Mode="Auto"});c.Start();
-                Until(()=>c.Current.Message.Contains("Cannot read EC baseline"),"Startup read failure is reported");
-                Thread.Sleep(100);failedStartup.BadMode=false;c.Request(new Settings {Mode="Auto"});
-                Until(()=>c.Current.FullUpdated!="","Explicit request restarts a failed startup worker");
+                Until(()=>c.Current.Message.Contains("Retry pending"),"Startup read failure is reported");
+                Thread.Sleep(100);failedStartup.BadMode=false;
+                Until(()=>c.Current.FullUpdated!="","Startup recovers without user request");
             }
             string file=System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"atomic-test-"+Guid.NewGuid().ToString("N")+".json");
             try {

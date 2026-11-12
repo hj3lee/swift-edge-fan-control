@@ -9,12 +9,12 @@ No separate .NET SDK is required.
 Choose Fan curve mode, fixed level 1-7, or Manufacturer default.
 Levels are EC steps, not exact RPM targets. Curve settings edits the curve.
 CPU temperature and fan RPM are sampled every 10 seconds.
-At a sampled CPU temperature >=90 C, control returns to manufacturer auto.
-Persistent communication errors and external level changes also trigger auto.
-The independent watchdog attempts recovery after a stalled/crashed controller.
-Long-term reliability is not established; communication timeouts can occur.
-
-X hides to the tray. Exit restores manufacturer automatic control.
+Only an explicit Manufacturer default selection releases control.
+Temperature, communication errors, sleep/resume and exit do not switch to auto.
+Errors retain the requested mode and retry after one second.
+Startup/resume and hardware drift reapply the selected fixed level or curve.
+No independent watchdog is launched. Firmware thermal override is unverified.
+X hides to the tray. Exit leaves the current EC state unchanged.
 Run at Windows login is optional. Uncheck it before removing the app.
 Settings and logs: %LOCALAPPDATA%\SwiftEdgeFanControl
 English is the default; six interface languages are available.

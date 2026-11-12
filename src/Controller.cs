@@ -73,195 +73,90 @@ namespace SwiftEdgeFanControl {
         public long Attempts, Timeouts;
         public Status Copy() { return (Status)MemberwiseClone(); }
     }
-    public sealed class Heartbeat {
-        public long Tick { get; set; }
-        public int Pid { get; set; }
-        public bool Done { get; set; }
-    }
     public sealed class Controller : IDisposable {
         readonly object gate=new object();
-        readonly IEc ec; readonly AppLog log; readonly bool demo;
+        readonly IEc ec; readonly AppLog log;
         readonly AutoResetEvent wake=new AutoResetEvent(false);
         readonly CurvePolicy policy=new CurvePolicy();
-        readonly string heartbeatPath;
         Settings requested=new Settings(); Status status=new Status();
-        volatile bool stop; Thread worker; Process watchdog;
+        volatile bool stop, owned; Thread worker;
+        long version, appliedVersion=-1;
         public const int SampleIntervalMilliseconds=10000;
-        volatile bool owned; int expectedLevel; long version, appliedVersion=-1;
-        public event Action<Settings> ForcedAutomatic;
         public event Action StatusUpdated;
-        public Controller(IEc hardware,AppLog logger,bool simulated) {
-            ec=hardware;log=logger;demo=simulated;
-            heartbeatPath=Path.Combine(Files.Root,"sessions",Guid.NewGuid().ToString("N")+".json");
+        public Controller(IEc hardware,AppLog logger,bool simulated) {ec=hardware;log=logger;}
+        public Status Current {get {lock(gate)return status.Copy();}}
+        public bool IsOwned {get {return owned;}}
+        public static string ApplicationPath() {return Process.GetCurrentProcess().MainModule.FileName;}
+        public void Start() {
+            lock(gate) {
+                if(stop || (worker!=null&&worker.IsAlive))return;
+                worker=new Thread(Run);worker.IsBackground=true;worker.Start();
+            }
         }
-        public Status Current { get { lock(gate)return status.Copy(); } }
-        public bool IsOwned { get { return owned; } }
-        public void Start() { worker=new Thread(Run);worker.IsBackground=true;worker.Start(); }
         public void Request(Settings settings) {
             settings.Validate();
-            lock(gate) { requested=Files.Json.Deserialize<Settings>(Files.Json.Serialize(settings));version++; }
-            log.Write("MODE","Requested "+settings.Mode+" level="+settings.FixedLevel+" hysteresis="+settings.Hysteresis+"°C down-delay="+settings.DownDelaySeconds+"s");
-            log.Write("CURVE",Files.Json.Serialize(settings.Curve));wake.Set();
-            if(worker!=null&&!worker.IsAlive&&!owned&&!stop)Start();
-        }
-        void Beat(bool done) {
-            Files.Atomic(heartbeatPath,Files.Json.Serialize(new Heartbeat {Tick=Stopwatch.GetTimestamp(),Pid=Process.GetCurrentProcess().Id,Done=done}));
-        }
-        void EnsureWatchdog() {
-            if(demo)return;
-            if(watchdog!=null && !watchdog.HasExited)return;
-            Beat(false);
-            watchdog=Process.Start(new ProcessStartInfo(ApplicationPath(),"--watchdog \""+heartbeatPath+"\"") { UseShellExecute=false,CreateNoWindow=true });
-            if(watchdog==null)throw new IOException("Watchdog did not start");
-            var wait=Stopwatch.StartNew();
-            while(!File.Exists(heartbeatPath+".ready") && wait.ElapsedMilliseconds<4000 && !watchdog.HasExited)Thread.Sleep(50);
-            if(watchdog.HasExited || !File.Exists(heartbeatPath+".ready"))throw new IOException("Watchdog initialization failed");
-        }
-        public static string ApplicationPath() { return Process.GetCurrentProcess().MainModule.FileName; }
-        void Restore() {
-            if(!owned)return;
-            Exception last=null;
-            for(int i=0;i<5;i++) {
-                try {
-                    byte mode=ec.Read(0);
-                    if((mode&2)!=0)ec.Write(0,(byte)(mode&~2));
-                    if((ec.Read(0)&2)!=0)throw new IOException("Auto readback mismatch");
-                    owned=false;expectedLevel=0;log.Write("RESTORE","Manufacturer automatic verified");return;
-                } catch(Exception e) { last=e;Thread.Sleep(100); }
+            lock(gate) {
+                requested=Files.Json.Deserialize<Settings>(Files.Json.Serialize(settings));version++;
+                status.Mode=requested.Mode;
             }
-            throw new IOException("Automatic restore failed",last);
+            log.Write("MODE","Requested "+settings.Mode+" level="+settings.FixedLevel);
+            log.Write("CURVE",Files.Json.Serialize(settings.Curve));wake.Set();
+        }
+        void Restore() {
+            // Only an explicitly selected Auto request reaches this method.
+            byte mode=ec.Read(0);
+            if((mode&2)!=0)ec.Write(0,(byte)(mode&~2));
+            if((ec.Read(0)&2)!=0)throw new IOException("Auto readback mismatch");
+            owned=false;
         }
         void ApplyLevel(int level) {
-            if(level==expectedLevel && owned)return;
-            EnsureWatchdog();
+            // Read hardware every sample, including startup/resume; cached ownership is insufficient.
             byte mode=ec.Read(0);
-            // Mark ownership before a write: even an ambiguous partial write must be restored.
+            int a=ec.Read(0x55),b=ec.Read(0x4f);
+            if((mode&2)!=0&&a==level&&b==level) {owned=true;return;}
             owned=true;
             ec.Write(0,(byte)(mode|2));ec.Write(0x55,(byte)level);ec.Write(0x4f,(byte)level);
-            if((ec.Read(0)&2)==0 || ec.Read(0x55)!=level || ec.Read(0x4f)!=level)
-                throw new IOException("Requested level readback mismatch");
-            expectedLevel=level;log.Write("APPLY","Both fans level "+level+" verified");
-        }
-        public void ForceAuto(string reason,bool persist=true) {
-            var s=Files.LoadSettings();s.Mode="Auto";
-            if(persist&&!demo)Files.SaveSettings(s);
-            Request(s);log.Write("FALLBACK",reason);
-        }
-        void LatchAuto(string reason) {
-            lock(gate) { requested.Mode="Auto";version++;status.Message=reason; }
-            log.Write("FALLBACK",reason);
-            Settings s;lock(gate)s=Files.Json.Deserialize<Settings>(Files.Json.Serialize(requested));
-            if(!demo)Files.SaveSettings(s);
-            var handler=ForcedAutomatic;if(handler!=null)handler(s);
-            Restore();
+            if((ec.Read(0)&2)==0||ec.Read(0x55)!=level||ec.Read(0x4f)!=level)
+                throw new IOException("Requested level readback mismatch; will retry");
+            log.Write("APPLY","Both fans level "+level+" verified");
         }
         void Run() {
-            bool ready=false;
-            try {
-                byte baseline=0;bool haveBaseline=false;
-                for(int i=0;i<4;i++) {
-                    try {baseline=ec.Read(0);haveBaseline=true;break;}
-                    catch(TimeoutException) {Thread.Sleep(150);}
-                }
-                if(!haveBaseline)throw new IOException("Cannot read EC baseline; no control writes performed");
-                EnsureWatchdog();ready=true;
-                if((baseline&2)!=0) {
-                    owned=true;
-                    Restore();
-                    log.Write("STARTUP","Existing manual EC state cleared; applying saved mode");
-                }
-                while(!stop) {
-                    wake.WaitOne(0);
-                    var iteration=Stopwatch.StartNew();
-                    try {
-                        if(owned && !demo && (watchdog==null || watchdog.HasExited))throw new IOException("Watchdog stopped; automatic fallback");
-                        Settings settings;long v;
-                        lock(gate) { settings=Files.Json.Deserialize<Settings>(Files.Json.Serialize(requested));v=version; }
-                        if(v!=appliedVersion) { policy.Reset();appliedVersion=v; }
+            while(!stop) {
+                wake.WaitOne(0);bool failed=false;
+                try {
+                    lock(gate) {
+                        Settings settings=requested;
+                        if(appliedVersion!=version){policy.Reset();appliedVersion=version;}
+                        // Fixed and Auto requests do not depend on a successful temperature read.
+                        if(settings.Mode=="Auto")Restore();
+                        else if(settings.Mode=="Fixed")ApplyLevel(settings.FixedLevel);
                         int temp=ec.Read(0x58);
-                        if(temp<10 || temp>110)throw new IOException("Invalid temperature sensor value");
-                        Beat(false);
-                        if(temp>=90 && settings.Mode!="Auto") { LatchAuto("CPU >=90°C; automatic latched until user action");settings.Mode="Auto"; }
-                        int level=policy.Select(settings,temp,DateTime.UtcNow);
-                        if(level==0)Restore();else ApplyLevel(level);
-                        Status next=Current;next.Temperature=temp;next.Mode=settings.Mode;next.Owned=owned;
-                        next.Updated=DateTime.Now.ToString("HH:mm:ss");
-                        {
-                            int mode=ec.Read(0), a=ec.Read(0x55), b=ec.Read(0x4f);
-                            int rpm1=ec.Read(0x5c)*256+ec.Read(0x5d),rpm2=ec.Read(0x6a)*256+ec.Read(0x6b);
-                            if(owned && ((mode&2)==0||a!=expectedLevel||b!=expectedLevel))throw new IOException("External level change detected; automatic fallback");
-                            if(owned && (rpm1<1000||rpm2<1000||rpm1>10000||rpm2>10000))throw new IOException("Invalid fan tachometer reading");
-                            next.Level1=a;next.Level2=b;next.Rpm1=rpm1;next.Rpm2=rpm2;next.FullUpdated=DateTime.Now.ToString("HH:mm:ss");
-                        }
-                        var pawn=ec as PawnEc;if(pawn!=null) { next.Attempts=pawn.ReadAttempts;next.Timeouts=pawn.ReadTimeouts; }
-                        next.Message=demo?"DEMO · no hardware access":"Sensor read verified";
-                        lock(gate)status=next;
+                        if(temp<10||temp>110)throw new IOException("Invalid temperature sensor value; retaining requested mode");
+                        if(settings.Mode=="Curve")ApplyLevel(policy.Select(settings,temp,DateTime.UtcNow));
+                        Status next=status.Copy();next.Mode=settings.Mode;next.Owned=owned;next.Temperature=temp;
+                        next.Level1=ec.Read(0x55);next.Level2=ec.Read(0x4f);
+                        next.Rpm1=ec.Read(0x5c)*256+ec.Read(0x5d);
+                        next.Rpm2=ec.Read(0x6a)*256+ec.Read(0x6b);
+                        next.Updated=next.FullUpdated=DateTime.Now.ToString("HH:mm:ss");
+                        var pawn=ec as PawnEc;if(pawn!=null){next.Attempts=pawn.ReadAttempts;next.Timeouts=pawn.ReadTimeouts;}
+                        next.Message="Sensor read verified";status=next;
                         log.Write("STATUS",Presentation.StatusLine(temp,settings.Mode,next.Level1,next.Level2,next.Rpm1,next.Rpm2));
-                    } catch(Exception e) {
-                        try { LatchAuto(e.Message); }
-                        catch(Exception restoreError) {
-                            log.Write("CRITICAL",restoreError.ToString());
-                            lock(gate)status.Message="Restore failed; watchdog recovery pending";
-                            // Stop refreshing heartbeat; independent process will retry restoration.
-                            ready=false;break;
-                        }
-                        lock(gate) { status.Mode="Auto";status.Owned=false;status.Message=e.Message; }
                     }
-                    var updated=StatusUpdated;if(updated!=null)updated();
-                    // Keep the 8-second crash watchdog alive while sleeping, without polling EC.
-                    while(!stop) {
-                        int remaining=SampleIntervalMilliseconds-(int)iteration.ElapsedMilliseconds;
-                        if(remaining<=0||wake.WaitOne(Math.Min(2000,remaining)))break;
-                        Beat(false);
-                    }
+                } catch(Exception e) {
+                    failed=true;
+                    lock(gate){status.Mode=requested.Mode;status.Owned=owned;status.Message="Retry pending: "+e.Message;}
+                    log.Write("RETRY",e.Message);
                 }
-            } catch(Exception e) {
-                log.Write("ERROR",e.ToString());lock(gate){status.Mode="Auto";status.Message=e.Message;}
                 var updated=StatusUpdated;if(updated!=null)updated();
-            }
-            finally {
-                try { Restore();if(ready)Beat(true); }
-                catch(Exception e) { log.Write("CRITICAL","Exit restore: "+e.Message); }
+                // Retry startup and transient errors without requiring another user click.
+                wake.WaitOne(failed?1000:SampleIntervalMilliseconds);
             }
         }
         public void Dispose() {
             stop=true;wake.Set();
-            if(worker!=null && !worker.Join(7000)) {
-                log.Write("CRITICAL","Worker exit timeout; leaving independent watchdog armed");return;
-            }
-            if(watchdog!=null && !watchdog.HasExited)watchdog.WaitForExit(4000);
+            if(worker!=null&&!worker.Join(7000)){log.Write("ERROR","Worker exit timeout");return;}
+            // Exit leaves hardware state unchanged; select Auto explicitly to release control.
             ec.Dispose();wake.Dispose();
-        }
-        public static int Watchdog(string path,string module) {
-            var log=new AppLog(false);
-            try {
-                using(var ec=new PawnEc(module)) {
-                    Files.Atomic(path+".ready",Process.GetCurrentProcess().Id.ToString());
-                    Heartbeat lastGood=null;long opened=Stopwatch.GetTimestamp();string lastReadError="";
-                    while(true) {
-                        try {
-                            var parsed=Files.Json.Deserialize<Heartbeat>(Files.ReadShared(path));
-                            if(parsed!=null && parsed.Tick>0)lastGood=parsed;
-                        }catch(Exception e) {lastReadError=e.Message;}
-                        Heartbeat hb=lastGood;
-                        double age=(Stopwatch.GetTimestamp()-(hb==null?opened:hb.Tick))/(double)Stopwatch.Frequency;
-                        bool stale=age>8;
-                        if(stale || (hb!=null && hb.Done)) {
-                            for(int i=0;i<12;i++) {
-                                try {
-                                    byte mode=ec.Read(0);
-                                    if((mode&2)!=0)ec.Write(0,(byte)(mode&~2));
-                                    if((ec.Read(0)&2)!=0)throw new IOException("Auto verification mismatch");
-                                    log.Write("WATCHDOG","Automatic verified; "+(stale?"heartbeat stale age="+age.ToString("F2")+" "+lastReadError:"normal exit"));
-                                    if(File.Exists(path))File.Delete(path);if(File.Exists(path+".ready"))File.Delete(path+".ready");return 0;
-                                }catch(Exception e){ log.Write("WATCHDOG_RETRY",e.Message);Thread.Sleep(150); }
-                            }
-                            log.Write("CRITICAL","Watchdog could not verify automatic mode");return 2;
-                        }
-                        Thread.Sleep(500);
-                    }
-                }
-            }catch(Exception e){log.Write("CRITICAL","Watchdog: "+e);return 2;}
         }
     }
 }
